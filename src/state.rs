@@ -2,8 +2,7 @@ use crate::{
     camera,
     instance::{Instance, InstanceRaw},
     model::{self, DrawModel, Model, Vertex},
-    texture,
-    world,
+    texture, world,
 };
 
 use cgmath::{Deg, InnerSpace, Rotation3, Zero};
@@ -96,56 +95,7 @@ impl State {
         };
         surface.configure(&device, &config);
 
-
-
-        let texture_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("Texture bind group layout"),
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            multisampled: false,
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler {
-                            // This is only for TextureSampleType::Depth
-                            comparison: false,
-                            // This should be true if the sample_type of the texture is:
-                            //     TextureSampleType::Float { filterable: true }
-                            // Otherwise you'll get an error.
-                            filtering: true,
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 2,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            multisampled: false,
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 3,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler {
-                            comparison: false,
-                            filtering: true,
-                        },
-                        count: None,
-                    },
-                ],
-            });
+        let texture_bind_group_layout = device.create_bind_group_layout(&texture::Texture::desc());
 
         let world = world::World::init(&config);
 
@@ -160,20 +110,7 @@ impl State {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
-        let camera_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }],
-                label: Some("Camera Bind Group Layout"),
-            });
+        let camera_bind_group_layout = device.create_bind_group_layout(&camera::Camera::desc());
 
         let camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &camera_bind_group_layout,
@@ -184,7 +121,7 @@ impl State {
             label: Some("Camera Bind Group"),
         });
 
-        // LIGHT 
+        // LIGHT
 
         let light_uniform = LightUniform {
             position: [2.0, 2.0, 2.0],
@@ -204,7 +141,7 @@ impl State {
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 entries: &[wgpu::BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                    visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
@@ -224,17 +161,17 @@ impl State {
             label: None,
         });
 
-        // DEPTH 
+        // DEPTH
 
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &config, "Depth Texture");
 
-
         // INSTANCES
-        
-        let instances = world.asteroids.iter().map(|asteroid| {
-            asteroid.instance
-        })
+
+        let instances = world
+            .asteroids
+            .iter()
+            .map(|asteroid| asteroid.instance)
             .collect::<Vec<_>>();
 
         let instance_data = instances.iter().map(Instance::to_raw).collect::<Vec<_>>();
@@ -305,7 +242,7 @@ impl State {
             res_dir.join("cube").join("cube.obj"),
         )
         .unwrap();
-        
+
         let debug_material = {
             let diffuse_texture = texture::Texture::load(
                 &device,
@@ -455,7 +392,8 @@ impl State {
                 bytemuck::cast_slice(&[self.light_uniform]),
             );
 
-            let instance_data = self.world
+            let instance_data = self
+                .world
                 .asteroids
                 .par_iter()
                 .map(|asteroid| Instance::to_raw(&asteroid.instance))

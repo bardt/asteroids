@@ -77,8 +77,8 @@ impl Camera {
         let forward = self.target - self.eye;
         let forward_norm = forward.normalize();
         let forward_mag = forward.magnitude();
-        
-        let delta_position : f32 = self.speed * (delta_time.as_millis() as f32) / 1000.0;
+
+        let delta_position: f32 = self.speed * (delta_time.as_millis() as f32) / 1000.0;
         // Prevents glitching when camera gets too close to the
         // center of the scene.
         if self.is_forward_pressed && forward_mag > delta_position {
@@ -110,7 +110,22 @@ impl Camera {
         if self.is_left_pressed {
             self.eye = self.target - (forward + right * delta_position).normalize() * forward_mag;
         }
-            
+    }
+
+    pub fn desc() -> wgpu::BindGroupLayoutDescriptor<'static> {
+        wgpu::BindGroupLayoutDescriptor {
+            label: Some("Camera Bind Group Layout"),
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            }],
+        }
     }
 }
 
