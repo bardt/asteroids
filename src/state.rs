@@ -5,7 +5,7 @@ use crate::{
     texture, world,
 };
 
-use cgmath::{Deg, InnerSpace, Rotation3, Zero};
+use cgmath::Rotation3;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::time::Instant;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
@@ -239,7 +239,7 @@ impl State {
             &device,
             &queue,
             &texture_bind_group_layout,
-            res_dir.join("cube").join("cube.obj"),
+            res_dir.join("spaceship").join("spaceship.obj"),
         )
         .unwrap();
 
@@ -383,7 +383,7 @@ impl State {
 
             let old_position: cgmath::Vector3<_> = self.light_uniform.position.into();
             self.light_uniform.position =
-                (cgmath::Quaternion::from_axis_angle((0.0, 1.0, 0.0).into(), cgmath::Deg(1.0))
+                (cgmath::Quaternion::from_axis_angle((0.0, 1.0, 0.0).into(), cgmath::Deg(0.5))
                     * old_position)
                     .into();
             self.queue.write_buffer(
@@ -468,9 +468,8 @@ impl State {
                 );
 
                 render_pass.set_pipeline(&self.render_pipeline);
-                render_pass.draw_model_instanced_with_material(
+                render_pass.draw_model_instanced(
                     &self.obj_model,
-                    &self.debug_material,
                     0..self.world.asteroids.len() as u32,
                     &self.camera_bind_group,
                     &self.light_bind_group,

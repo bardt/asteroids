@@ -91,10 +91,6 @@ fn main(
 fn main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
     let object_color: vec4<f32> = textureSample(t_diffuse, s_diffuse, in.tex_coords);
     let object_normal: vec4<f32> = textureSample(t_normal, s_normal, in.tex_coords);
-    
-    
-    let ambient_strength = 0.05;
-    let ambient_color = light.color * ambient_strength;
 
 
     let tangent_normal = object_normal.xyz * 2.0 - 1.0;
@@ -105,12 +101,17 @@ fn main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
     let half_dir = normalize(view_dir + light_dir);
 
 
+    let ambient_strength = 0.1;
+    let ambient_color = light.color * ambient_strength;
+
+
     let diffuse_strength = max(dot(tangent_normal, light_dir) * light_intencity, 0.0);
     let diffuse_color = light.color * diffuse_strength;
 
     
     let specular_strength = pow(max(dot(tangent_normal, half_dir) * light_intencity, 0.0), 32.0);
     let specular_color = light.color * specular_strength;
+
 
     let total_lighting_color = ambient_color + diffuse_color + specular_color;
 

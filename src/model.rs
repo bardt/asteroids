@@ -1,11 +1,10 @@
+use crate::texture;
 use anyhow::*;
-use cgmath::InnerSpace;
+use cgmath::{InnerSpace, Vector2, Vector3};
 use rayon::prelude::*;
 use std::{ops::Range, path::Path};
 use tobj::LoadOptions;
 use wgpu::{util::DeviceExt, BindGroup};
-
-use crate::texture;
 
 pub trait Vertex {
     fn desc<'a>() -> wgpu::VertexBufferLayout<'a>;
@@ -142,18 +141,36 @@ impl Model {
         let materials = obj_materials
             .par_iter()
             .map(|mat| {
-                let mut textures = [
-                    (containing_folder.join(&mat.diffuse_texture), false),
-                    (containing_folder.join(&mat.normal_texture), true),
-                ]
-                .par_iter()
-                .map(|(path, is_normal_map)| {
-                    texture::Texture::load(device, queue, path, *is_normal_map)
-                })
-                .collect::<Result<Vec<_>>>()?;
+                let diffuse_texture = texture::Texture::load(
+                    device,
+                    queue,
+                    containing_folder.join(&mat.diffuse_texture),
+                    false,
+                )?;
 
-                let diffuse_texture = textures.pop().unwrap();
-                let normal_texture = textures.pop().unwrap();
+                let normal_texture = if &mat.normal_texture == "" {
+                    // If no normal texture is set, use a default one, matching diffuse texture in size
+                    let mut raw_img = image::RgbImage::new(
+                        diffuse_texture.size.width,
+                        diffuse_texture.size.height,
+                    );
+
+                    for x in 0..diffuse_texture.size.width {
+                        for y in 0..diffuse_texture.size.height {
+                            raw_img.put_pixel(x, y, image::Rgb([128, 128, 255]));
+                        }
+                    }
+
+                    let img = image::DynamicImage::ImageRgb8(raw_img);
+                    texture::Texture::from_image(device, queue, &img, None, true)?
+                } else {
+                    texture::Texture::load(
+                        device,
+                        queue,
+                        containing_folder.join(&mat.normal_texture),
+                        true,
+                    )?
+                };
 
                 Ok(Material::new(
                     device,
@@ -176,7 +193,7 @@ impl Model {
                             m.mesh.positions[i * 3 + 1],
                             m.mesh.positions[i * 3 + 2],
                         ],
-                        tex_coords: [m.mesh.texcoords[i * 2], m.mesh.texcoords[i * 2 + 1]],
+                        tex_coords: [m.mesh.texcoords[i * 2], 1.0 - m.mesh.texcoords[i * 2 + 1]],
                         normal: [
                             m.mesh.normals[i * 3],
                             m.mesh.normals[i * 3 + 1],
@@ -198,13 +215,13 @@ impl Model {
                     let v1 = vertices[c[1] as usize];
                     let v2 = vertices[c[2] as usize];
 
-                    let pos0: cgmath::Vector3<_> = v0.position.into();
-                    let pos1: cgmath::Vector3<_> = v1.position.into();
-                    let pos2: cgmath::Vector3<_> = v2.position.into();
+                    let pos0: Vector3<_> = v0.position.into();
+                    let pos1: Vector3<_> = v1.position.into();
+                    let pos2: Vector3<_> = v2.position.into();
 
-                    let uv0: cgmath::Vector2<_> = v0.tex_coords.into();
-                    let uv1: cgmath::Vector2<_> = v1.tex_coords.into();
-                    let uv2: cgmath::Vector2<_> = v2.tex_coords.into();
+                    let uv0: Vector2<_> = v0.tex_coords.into();
+                    let uv1: Vector2<_> = v1.tex_coords.into();
+                    let uv2: Vector2<_> = v2.tex_coords.into();
 
                     // Calculate the edges of the triangle
                     let delta_pos1 = pos1 - pos0;
@@ -212,8 +229,18 @@ impl Model {
 
                     // This will give us a direction to calculate the
                     // tangent and bitangent
-                    let delta_uv1 = uv1 - uv0;
-                    let delta_uv2 = uv2 - uv0;
+                    // Note: in some cases all vertices have the same UV texture coordinates;
+                    // In this case we fallback to a defailt delta vector
+                    let delta_uv1 = if uv1 == uv0 {
+                        Vector2::new(1.0, 0.0)
+                    } else {
+                        uv1 - uv0
+                    };
+                    let delta_uv2 = if uv2 == uv0 {
+                        Vector2::new(0.0, 1.0)
+                    } else {
+                        uv2 - uv0
+                    };
 
                     // Solving the following system of equations will
                     // give us the tangent and bitangent.
