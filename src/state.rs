@@ -433,18 +433,10 @@ impl State {
                 render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
 
                 render_pass.set_pipeline(&self.light_render_pipeline);
-                let asteroid_mesh = self
-                    .obj_model
-                    .meshes
-                    .iter()
-                    .find(|mesh| mesh.name == "Asteroid")
-                    .unwrap();
 
-                let asteroid_material = &self.obj_model.materials[asteroid_mesh.material];
-
-                render_pass.draw_mesh(
-                    &asteroid_mesh,
-                    asteroid_material,
+                render_pass.draw_named_mesh(
+                    "Asteroid",
+                    &self.obj_model,
                     &self.camera_bind_group,
                     &self.light_bind_group,
                 );
@@ -460,18 +452,9 @@ impl State {
                 //     &self.light_bind_group,
                 // );
 
-                let spaceship_mesh = self
-                    .obj_model
-                    .meshes
-                    .iter()
-                    .find(|mesh| mesh.name == "Spaceship")
-                    .unwrap();
-
-                let spaceship_material = &self.obj_model.materials[spaceship_mesh.material];
-
-                render_pass.draw_mesh(
-                    &spaceship_mesh,
-                    spaceship_material,
+                render_pass.draw_named_mesh(
+                    "Spaceship",
+                    &self.obj_model,
                     &self.camera_bind_group,
                     &self.light_bind_group,
                 );

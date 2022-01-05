@@ -328,6 +328,21 @@ pub trait DrawModel<'a> {
         camera_bind_group: &'a wgpu::BindGroup,
         light_bind_group: &'a wgpu::BindGroup,
     );
+    fn draw_named_mesh(
+        &mut self,
+        name: &str,
+        model: &'a Model,
+        camera_bind_group: &'a wgpu::BindGroup,
+        light_bind_group: &'a wgpu::BindGroup,
+    );
+    fn draw_named_mesh_instanced(
+        &mut self,
+        name: &str,
+        model: &'a Model,
+        instances: Range<u32>,
+        camera_bind_group: &'a wgpu::BindGroup,
+        light_bind_group: &'a wgpu::BindGroup,
+    );
     fn draw_model(
         &mut self,
         model: &'a Model,
@@ -425,5 +440,36 @@ where
                 light_bind_group,
             );
         }
+    }
+    fn draw_named_mesh(
+        &mut self,
+        name: &str,
+        model: &'b Model,
+        camera_bind_group: &'b wgpu::BindGroup,
+        light_bind_group: &'b wgpu::BindGroup,
+    ) {
+        let mesh = model.meshes.iter().find(|mesh| mesh.name == name).unwrap();
+        let material = &model.materials[mesh.material];
+
+        self.draw_mesh(mesh, material, camera_bind_group, light_bind_group);
+    }
+    fn draw_named_mesh_instanced(
+        &mut self,
+        name: &str,
+        model: &'b Model,
+        instances: Range<u32>,
+        camera_bind_group: &'b wgpu::BindGroup,
+        light_bind_group: &'b wgpu::BindGroup,
+    ) {
+        let mesh = model.meshes.iter().find(|mesh| mesh.name == name).unwrap();
+        let material = &model.materials[mesh.material];
+
+        self.draw_mesh_instanced(
+            mesh,
+            material,
+            instances,
+            camera_bind_group,
+            light_bind_group,
+        );
     }
 }
