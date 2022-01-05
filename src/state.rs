@@ -40,8 +40,6 @@ pub struct State {
     light_buffer: wgpu::Buffer,
     light_bind_group: wgpu::BindGroup,
     light_render_pipeline: wgpu::RenderPipeline,
-    #[allow(dead_code)]
-    debug_material: model::Material,
     last_update: Instant,
     last_render: Instant,
     world: world::World,
@@ -239,34 +237,9 @@ impl State {
             &device,
             &queue,
             &texture_bind_group_layout,
-            res_dir.join("spaceship").join("spaceship.obj"),
+            res_dir.join("assets.obj"),
         )
         .unwrap();
-
-        let debug_material = {
-            let diffuse_texture = texture::Texture::load(
-                &device,
-                &queue,
-                res_dir.join("cube").join("cobble-diffuse.png"),
-                false,
-            )
-            .unwrap();
-            let normal_texture = texture::Texture::load(
-                &device,
-                &queue,
-                res_dir.join("cube").join("cobble-normal.png"),
-                true,
-            )
-            .unwrap();
-
-            model::Material::new(
-                &device,
-                "debug-material",
-                diffuse_texture,
-                normal_texture,
-                &texture_bind_group_layout,
-            )
-        };
 
         let now = std::time::Instant::now();
 
@@ -287,7 +260,6 @@ impl State {
             light_buffer,
             light_bind_group,
             light_render_pipeline,
-            debug_material,
             last_update: now,
             last_render: now,
             instance_buffer,
@@ -461,16 +433,45 @@ impl State {
                 render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
 
                 render_pass.set_pipeline(&self.light_render_pipeline);
-                render_pass.draw_model(
-                    &self.obj_model,
+                let asteroid_mesh = self
+                    .obj_model
+                    .meshes
+                    .iter()
+                    .find(|mesh| mesh.name == "Asteroid")
+                    .unwrap();
+
+                let asteroid_material = &self.obj_model.materials[asteroid_mesh.material];
+
+                render_pass.draw_mesh(
+                    &asteroid_mesh,
+                    asteroid_material,
                     &self.camera_bind_group,
                     &self.light_bind_group,
                 );
 
                 render_pass.set_pipeline(&self.render_pipeline);
-                render_pass.draw_model_instanced(
-                    &self.obj_model,
-                    0..self.world.asteroids.len() as u32,
+
+                // Drawing asteroids
+                // render_pass.draw_mesh_instanced(
+                //     &asteroid_mesh,
+                //     asteroid_material,
+                //     0..self.world.asteroids.len() as u32,
+                //     &self.camera_bind_group,
+                //     &self.light_bind_group,
+                // );
+
+                let spaceship_mesh = self
+                    .obj_model
+                    .meshes
+                    .iter()
+                    .find(|mesh| mesh.name == "Spaceship")
+                    .unwrap();
+
+                let spaceship_material = &self.obj_model.materials[spaceship_mesh.material];
+
+                render_pass.draw_mesh(
+                    &spaceship_mesh,
+                    spaceship_material,
                     &self.camera_bind_group,
                     &self.light_bind_group,
                 );
