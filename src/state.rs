@@ -167,9 +167,9 @@ impl State {
         // INSTANCES
 
         let instances = world
-            .asteroids
+            .entities
             .iter()
-            .map(|asteroid| asteroid.instance)
+            .map(|entity| entity.instance)
             .collect::<Vec<_>>();
 
         let instance_data = instances.iter().map(Instance::to_raw).collect::<Vec<_>>();
@@ -355,7 +355,7 @@ impl State {
 
             let old_position: cgmath::Vector3<_> = self.light_uniform.position.into();
             self.light_uniform.position =
-                (cgmath::Quaternion::from_axis_angle((0.0, 1.0, 0.0).into(), cgmath::Deg(0.5))
+                (cgmath::Quaternion::from_axis_angle((0.0, 0.0, 1.0).into(), cgmath::Deg(0.5))
                     * old_position)
                     .into();
             self.queue.write_buffer(
@@ -366,9 +366,9 @@ impl State {
 
             let instance_data = self
                 .world
-                .asteroids
+                .entities
                 .par_iter()
-                .map(|asteroid| Instance::to_raw(&asteroid.instance))
+                .map(|entity| Instance::to_raw(&entity.instance))
                 .collect::<Vec<_>>();
 
             self.queue.write_buffer(
@@ -441,20 +441,39 @@ impl State {
                     &self.light_bind_group,
                 );
 
+                // Render entities
                 render_pass.set_pipeline(&self.render_pipeline);
 
-                // Drawing asteroids
-                // render_pass.draw_mesh_instanced(
-                //     &asteroid_mesh,
-                //     asteroid_material,
-                //     0..self.world.asteroids.len() as u32,
-                //     &self.camera_bind_group,
-                //     &self.light_bind_group,
-                // );
+                let mut offset = 0;
+                let mut size = 0;
+                let mut entity_name = "";
 
-                render_pass.draw_named_mesh(
-                    "Spaceship",
+                for entity in &self.world.entities {
+                    if entity_name == "" {
+                        entity_name = entity.name.as_str();
+                    }
+
+                    if entity_name == entity.name.as_str() {
+                        size += 1;
+                    } else {
+                        render_pass.draw_named_mesh_instanced(
+                            entity_name,
+                            &self.obj_model,
+                            offset..(offset + size),
+                            &self.camera_bind_group,
+                            &self.light_bind_group,
+                        );
+
+                        entity_name = entity.name.as_str();
+                        offset = size;
+                        size = 1;
+                    }
+                }
+
+                render_pass.draw_named_mesh_instanced(
+                    entity_name,
                     &self.obj_model,
+                    offset..(offset + size),
                     &self.camera_bind_group,
                     &self.light_bind_group,
                 );

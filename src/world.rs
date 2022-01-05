@@ -1,41 +1,70 @@
-
 use crate::camera::Camera;
 use crate::instance::Instance;
-use cgmath::{Rotation3, Deg};
+use cgmath::{Deg, Rotation3};
 
 #[derive(Clone)]
-pub struct Asteroid {
-    pub instance: Instance
-
+pub struct Entity {
+    pub name: String,
+    pub instance: Instance,
 }
 
-
 pub struct World {
-    pub asteroids: Vec<Asteroid>,
-    pub camera : Camera
-
+    pub entities: Vec<Entity>,
+    pub camera: Camera,
 }
 
 impl World {
     pub fn init(config: &wgpu::SurfaceConfiguration) -> Self {
-        let asteroids : Vec<Asteroid> = [
-            Asteroid {
-                instance : Instance {
+        let entities: Vec<Entity> = [
+            Entity {
+                name: "Spaceship".to_string(),
+                instance: Instance {
                     position: (0.0, 0.0, 0.0).into(),
-                    rotation: cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), Deg(0.0)),
-
-                }
-            }
-        ].to_vec();
+                    rotation: cgmath::Quaternion::from_axis_angle(
+                        cgmath::Vector3::unit_z(),
+                        Deg(0.0),
+                    ),
+                },
+            },
+            Entity {
+                name: "Asteroid".to_string(),
+                instance: Instance {
+                    position: (5.0, 5.0, 0.0).into(),
+                    rotation: cgmath::Quaternion::from_axis_angle(
+                        cgmath::Vector3::unit_z(),
+                        Deg(0.0),
+                    ),
+                },
+            },
+            Entity {
+                name: "Asteroid".to_string(),
+                instance: Instance {
+                    position: (-5.0, 5.0, 0.0).into(),
+                    rotation: cgmath::Quaternion::from_axis_angle(
+                        cgmath::Vector3::unit_z(),
+                        Deg(0.0),
+                    ),
+                },
+            },
+            Entity {
+                name: "Asteroid".to_string(),
+                instance: Instance {
+                    position: (5.0, -5.0, 0.0).into(),
+                    rotation: cgmath::Quaternion::from_axis_angle(
+                        cgmath::Vector3::unit_z(),
+                        Deg(0.0),
+                    ),
+                },
+            },
+        ]
+        .to_vec();
 
         let camera = Camera {
-            // position the camera one unit up and 2 units back
-            // +z is out of the screen
-            eye: (0.0, 5.0, 10.0).into(),
+            eye: (0.0, -0.01, 20.0).into(),
             // have it look at the origin
             target: (0.0, 0.0, 0.0).into(),
             // which way is "up"
-            up: cgmath::Vector3::unit_y(),
+            up: cgmath::Vector3::unit_z(),
             aspect: config.width as f32 / config.height as f32,
             fovy: 45.0,
             znear: 0.1,
@@ -49,14 +78,6 @@ impl World {
             is_right_pressed: false,
         };
 
-
-        Self {
-            asteroids,
-            camera,
-
-        }
+        Self { entities, camera }
     }
 }
-
-
-

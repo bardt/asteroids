@@ -89,10 +89,10 @@ impl Camera {
         }
 
         if self.is_up_pressed {
-            self.eye += cgmath::Vector3::unit_y() * delta_position;
+            self.eye += cgmath::Vector3::unit_z() * delta_position;
         }
         if self.is_down_pressed {
-            self.eye -= cgmath::Vector3::unit_y() * delta_position;
+            self.eye -= cgmath::Vector3::unit_z() * delta_position;
         }
 
         let right = forward_norm.cross(self.up);
