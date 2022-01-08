@@ -7,7 +7,7 @@ use crate::{
 };
 
 use cgmath::Rotation3;
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use rayon::iter::{IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
 use std::time::Instant;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use winit::{event::WindowEvent, window::Window};
@@ -372,8 +372,9 @@ impl State {
             let instance_data = self
                 .world
                 .entities
-                .iter_mut()
-                .map(|entity| entity.update(&self.input, &delta_time))
+                .par_iter_mut()
+                .map(|entity| entity.update_control(&self.input, &delta_time))
+                .map(|entity| entity.update_physics(&delta_time))
                 .collect::<Vec<_>>()
                 .par_iter()
                 .map(|entity| Instance::to_raw(&entity.instance))
