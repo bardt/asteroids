@@ -1,4 +1,5 @@
 mod camera;
+mod input;
 mod instance;
 mod model;
 mod state;

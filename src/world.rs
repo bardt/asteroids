@@ -1,11 +1,67 @@
-use crate::camera::Camera;
-use crate::instance::Instance;
+use std::time::Duration;
+
+use crate::{camera::Camera, input::Input, instance::Instance};
 use cgmath::{Deg, Rotation3};
 
-#[derive(Clone)]
 pub struct Entity {
     pub name: String,
     pub instance: Instance,
+    pub components: Vec<Component>,
+}
+
+impl Entity {
+    pub fn make_asteroid(position: (f32, f32, f32)) -> Entity {
+        Self {
+            name: "Asteroid".to_string(),
+            instance: Instance {
+                position: position.into(),
+                rotation: cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), Deg(0.0)),
+            },
+            components: vec![],
+        }
+    }
+
+    pub fn make_spaceship(position: (f32, f32, f32), rotation_angle: f32) -> Entity {
+        Self {
+            name: "Spaceship".to_string(),
+            instance: Instance {
+                position: position.into(),
+                rotation: cgmath::Quaternion::from_angle_z(Deg(rotation_angle)),
+            },
+            components: vec![Component::Controllable],
+        }
+    }
+
+    pub fn update(&mut self, input: &Input, dtime: &Duration) -> &Self {
+        for component in &self.components {
+            match component {
+                Component::Controllable => {
+                    Entity::update_controllable(&mut self.instance, input, dtime)
+                }
+            }
+        }
+
+        self
+    }
+
+    fn update_controllable(instance: &mut Instance, input: &Input, dtime: &Duration) {
+        let rotation_speed = 30.;
+        let delta_angle = (dtime.as_millis() as f32) / 1000.0 * rotation_speed;
+
+        if input.is_right_pressed {
+            instance.rotation =
+                instance.rotation * cgmath::Quaternion::from_angle_z(cgmath::Deg(-delta_angle))
+        }
+
+        if input.is_left_pressed {
+            instance.rotation =
+                instance.rotation * cgmath::Quaternion::from_angle_z(cgmath::Deg(delta_angle))
+        }
+    }
+}
+
+pub enum Component {
+    Controllable,
 }
 
 pub struct World {
@@ -15,49 +71,12 @@ pub struct World {
 
 impl World {
     pub fn init(config: &wgpu::SurfaceConfiguration) -> Self {
-        let entities: Vec<Entity> = [
-            Entity {
-                name: "Spaceship".to_string(),
-                instance: Instance {
-                    position: (0.0, 0.0, 0.0).into(),
-                    rotation: cgmath::Quaternion::from_axis_angle(
-                        cgmath::Vector3::unit_z(),
-                        Deg(0.0),
-                    ),
-                },
-            },
-            Entity {
-                name: "Asteroid".to_string(),
-                instance: Instance {
-                    position: (5.0, 5.0, 0.0).into(),
-                    rotation: cgmath::Quaternion::from_axis_angle(
-                        cgmath::Vector3::unit_z(),
-                        Deg(0.0),
-                    ),
-                },
-            },
-            Entity {
-                name: "Asteroid".to_string(),
-                instance: Instance {
-                    position: (-5.0, 5.0, 0.0).into(),
-                    rotation: cgmath::Quaternion::from_axis_angle(
-                        cgmath::Vector3::unit_z(),
-                        Deg(0.0),
-                    ),
-                },
-            },
-            Entity {
-                name: "Asteroid".to_string(),
-                instance: Instance {
-                    position: (5.0, -5.0, 0.0).into(),
-                    rotation: cgmath::Quaternion::from_axis_angle(
-                        cgmath::Vector3::unit_z(),
-                        Deg(0.0),
-                    ),
-                },
-            },
-        ]
-        .to_vec();
+        let entities: Vec<Entity> = vec![
+            Entity::make_spaceship((0.0, 0.0, 0.0), 90.),
+            Entity::make_asteroid((5.0, 5.0, 0.0)),
+            Entity::make_asteroid((-5.0, 5.0, 0.0)),
+            Entity::make_asteroid((5.0, -5.0, 0.0)),
+        ];
 
         let camera = Camera {
             eye: (0.0, -0.01, 20.0).into(),

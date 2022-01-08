@@ -1,5 +1,6 @@
 use crate::{
     camera,
+    input::Input,
     instance::{Instance, InstanceRaw},
     model::{self, DrawModel, Model, Vertex},
     texture, world,
@@ -43,6 +44,7 @@ pub struct State {
     last_update: Instant,
     last_render: Instant,
     world: world::World,
+    input: Input,
 }
 
 impl State {
@@ -243,6 +245,8 @@ impl State {
 
         let now = std::time::Instant::now();
 
+        let input = Input::new();
+
         Self {
             surface,
             device,
@@ -263,6 +267,7 @@ impl State {
             last_update: now,
             last_render: now,
             instance_buffer,
+            input,
         }
     }
 
@@ -337,7 +342,7 @@ impl State {
         /*  Returns a bool to indicate whether an event has been fully processed.
             If the method returns true, the main loop won't process the event any further.
         */
-        self.world.camera.process_events(event)
+        self.input.process_events(event)
     }
 
     pub fn update(&mut self) {
@@ -367,6 +372,9 @@ impl State {
             let instance_data = self
                 .world
                 .entities
+                .iter_mut()
+                .map(|entity| entity.update(&self.input, &delta_time))
+                .collect::<Vec<_>>()
                 .par_iter()
                 .map(|entity| Instance::to_raw(&entity.instance))
                 .collect::<Vec<_>>();
