@@ -1,7 +1,8 @@
 use std::time::Duration;
 
 use crate::{camera::Camera, input::Input, instance::Instance};
-use cgmath::{Deg, Rotation3};
+use cgmath::prelude::*;
+use cgmath::Deg;
 
 pub struct Entity {
     pub name: String,
@@ -45,8 +46,13 @@ impl Entity {
     }
 
     fn update_controllable(instance: &mut Instance, input: &Input, dtime: &Duration) {
-        let rotation_speed = 30.;
-        let delta_angle = (dtime.as_millis() as f32) / 1000.0 * rotation_speed;
+        // @TODO: Base in physics
+        let rotation_speed = 180.;
+        let movement_speed = 50.;
+
+        let delta_time = (dtime.as_millis() as f32) / 1000.0;
+        let delta_angle = delta_time * rotation_speed;
+        let delta_position = delta_time * movement_speed;
 
         if input.is_right_pressed {
             instance.rotation =
@@ -56,6 +62,16 @@ impl Entity {
         if input.is_left_pressed {
             instance.rotation =
                 instance.rotation * cgmath::Quaternion::from_angle_z(cgmath::Deg(delta_angle))
+        }
+
+        let direction = instance.rotation.rotate_vector(cgmath::Vector3::unit_y()); //cgmath::Vector3 { x, y, z };
+
+        if input.is_forward_pressed {
+            instance.position = instance.position + (direction * delta_position);
+        }
+
+        if input.is_backward_pressed {
+            instance.position = instance.position - (direction * delta_position);
         }
     }
 }
@@ -79,7 +95,7 @@ impl World {
         ];
 
         let camera = Camera {
-            eye: (0.0, -0.01, 20.0).into(),
+            eye: (0.0, -0.01, 100.0).into(),
             // have it look at the origin
             target: (0.0, 0.0, 0.0).into(),
             // which way is "up"
@@ -87,7 +103,7 @@ impl World {
             aspect: config.width as f32 / config.height as f32,
             fovy: 45.0,
             znear: 0.1,
-            zfar: 100.0,
+            zfar: 200.0,
             speed: 5.0,
             is_up_pressed: false,
             is_down_pressed: false,
