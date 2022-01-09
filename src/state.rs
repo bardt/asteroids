@@ -7,7 +7,7 @@ use crate::{
 };
 
 use cgmath::Rotation3;
-use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
+use rayon::iter::{IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
 use std::time::Instant;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use winit::{event::WindowEvent, window::Window};
@@ -174,7 +174,17 @@ impl State {
             .map(|entity| entity.instance)
             .collect::<Vec<_>>();
 
-        let instance_data = instances.iter().map(Instance::to_raw).collect::<Vec<_>>();
+        let instance_data = instances
+            .iter()
+            .map(|instance| {
+                world
+                    .add_ghost_instances(instance)
+                    .par_iter()
+                    .map(|instance| Instance::to_raw(instance))
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>()
+            .concat();
         // This buffer will be overridden in `update` to animate instances
         let instance_buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Instance Buffer"),
@@ -369,14 +379,29 @@ impl State {
                 bytemuck::cast_slice(&[self.light_uniform]),
             );
 
+            self.world
+                .entities
+                .par_iter_mut()
+                .for_each(|entity| entity.update_control(&self.input, &delta_time));
+
+            self.world
+                .entities
+                .par_iter_mut()
+                .for_each(|entity| entity.update_physics(self.world.size, &delta_time));
+
             let instance_data = self
                 .world
                 .entities
-                .par_iter_mut()
-                .map(|entity| entity.update_control(&self.input, &delta_time))
-                .map(|entity| entity.update_physics(&delta_time))
-                .map(|entity| Instance::to_raw(&entity.instance))
-                .collect::<Vec<_>>();
+                .par_iter()
+                .map(|entity| {
+                    self.world
+                        .add_ghost_instances(&entity.instance)
+                        .par_iter()
+                        .map(|instance| Instance::to_raw(instance))
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>()
+                .concat();
 
             self.queue.write_buffer(
                 &self.instance_buffer,
@@ -454,6 +479,7 @@ impl State {
                 let mut offset = 0;
                 let mut size = 0;
                 let mut entity_name = "";
+                let instances_per_entity = 9; // because of ghost instances to make world looping
 
                 for entity in &self.world.entities {
                     if entity_name == "" {
@@ -461,7 +487,7 @@ impl State {
                     }
 
                     if entity_name == entity.name.as_str() {
-                        size += 1;
+                        size += instances_per_entity;
                     } else {
                         render_pass.draw_named_mesh_instanced(
                             entity_name,
@@ -473,7 +499,7 @@ impl State {
 
                         entity_name = entity.name.as_str();
                         offset = size;
-                        size = 1;
+                        size = instances_per_entity;
                     }
                 }
 

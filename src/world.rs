@@ -3,6 +3,7 @@ use std::time::Duration;
 use crate::{camera::Camera, input::Input, instance::Instance};
 use cgmath::prelude::*;
 use cgmath::Deg;
+use cgmath::Vector3;
 use rand::Rng;
 use rayon::iter::IntoParallelRefMutIterator;
 use rayon::iter::ParallelIterator;
@@ -21,7 +22,7 @@ impl Entity {
                 position: position.into(),
                 rotation: cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), Deg(0.0)),
             },
-            components: vec![Component::Physics(PhysicsProps::random(1., 100.))],
+            components: vec![Component::Physics(Physics::random(1., 100.))],
         }
     }
 
@@ -32,23 +33,23 @@ impl Entity {
                 position: position.into(),
                 rotation: cgmath::Quaternion::from_angle_z(Deg(rotation_angle)),
             },
-            components: vec![Component::Control, Component::Physics(PhysicsProps::init())],
+            components: vec![Component::Control, Component::Physics(Physics::init())],
         }
     }
 
-    pub fn update_physics(&mut self, dtime: &Duration) -> &mut Self {
+    pub fn update_physics(&mut self, world_size: (f32, f32), dtime: &Duration) {
         self.components
             .par_iter_mut()
             .find_map_first(|component| match component {
-                Component::Physics(props) => Some(&mut *props),
+                Component::Physics(physics) => Some(&mut *physics),
                 _ => None,
             })
-            .map(|props| Entity::update_physics_internal(&mut self.instance, props, dtime));
-
-        self
+            .map(|physics| {
+                Entity::update_physics_internal(&mut self.instance, physics, world_size, dtime)
+            });
     }
 
-    pub fn update_control(&mut self, input: &Input, dtime: &Duration) -> &mut Self {
+    pub fn update_control(&mut self, input: &Input, dtime: &Duration) {
         let control = self
             .components
             .par_iter_mut()
@@ -60,17 +61,17 @@ impl Entity {
         self.components
             .par_iter_mut()
             .find_map_first(|component| match (&control, component) {
-                (Some(()), Component::Physics(props)) => Some(&mut *props),
+                (Some(()), Component::Physics(physics)) => Some(&mut *physics),
                 _ => None,
             })
-            .map(|props| Entity::update_control_internal(&mut self.instance, props, input, dtime));
-
-        self
+            .map(|physics| {
+                Entity::update_control_internal(&mut self.instance, physics, input, dtime)
+            });
     }
 
     fn update_control_internal(
         instance: &mut Instance,
-        physics: &mut PhysicsProps,
+        physics: &mut Physics,
         input: &Input,
         dtime: &Duration,
     ) {
@@ -100,17 +101,23 @@ impl Entity {
 
     fn update_physics_internal(
         instance: &mut Instance,
-        physics_props: &PhysicsProps,
+        physics: &Physics,
+        world_size: (f32, f32),
         dtime: &Duration,
     ) {
         /*
         @TODO: limit maximum linear speed
         */
         instance.position =
-            instance.position + physics_props.linear_speed * (dtime.as_millis() as f32) / 1000.0;
+            instance.position + physics.linear_speed * (dtime.as_millis() as f32) / 1000.0;
+        instance.position = Vector3 {
+            x: instance.position.x % world_size.0,
+            y: instance.position.y % world_size.1,
+            z: instance.position.z,
+        };
         instance.rotation = cgmath::Quaternion::nlerp(
             instance.rotation,
-            instance.rotation * physics_props.angular_speed,
+            instance.rotation * physics.angular_speed,
             (dtime.as_millis() as f32) / 1000.0,
         );
     }
@@ -118,15 +125,15 @@ impl Entity {
 
 pub enum Component {
     Control,
-    Physics(PhysicsProps),
+    Physics(Physics),
 }
 
-pub struct PhysicsProps {
+pub struct Physics {
     linear_speed: cgmath::Vector3<f32>,
     angular_speed: cgmath::Quaternion<f32>,
 }
 
-impl PhysicsProps {
+impl Physics {
     fn init() -> Self {
         Self {
             linear_speed: (0.0, 0.0, 0.0).into(),
@@ -220,5 +227,25 @@ impl World {
         };
 
         (size, camera)
+    }
+
+    /// Add fake instances to make the world visually looping
+    pub(crate) fn add_ghost_instances(&self, instance: &Instance) -> Vec<Instance> {
+        let mut instances = Vec::with_capacity(9);
+
+        for row in (-1)..=1 {
+            for col in (-1)..=1 {
+                let mut ghost_instance = instance.clone();
+                ghost_instance.position = Vector3 {
+                    x: ghost_instance.position.x + self.size.0 * (col as f32),
+                    y: ghost_instance.position.y + self.size.1 * (row as f32),
+                    z: ghost_instance.position.z,
+                };
+
+                instances.push(ghost_instance)
+            }
+        }
+
+        instances
     }
 }
