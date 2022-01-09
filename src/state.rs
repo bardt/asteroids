@@ -7,7 +7,7 @@ use crate::{
 };
 
 use cgmath::Rotation3;
-use rayon::iter::{IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
+use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
 use std::time::Instant;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use winit::{event::WindowEvent, window::Window};
@@ -331,7 +331,7 @@ impl State {
             self.size = new_size;
             self.config.width = new_size.width;
             self.config.height = new_size.height;
-            self.world.camera.aspect = self.config.width as f32 / self.config.height as f32;
+            self.world.resize(&self.config);
             self.surface.configure(&self.device, &self.config);
             self.depth_texture =
                 texture::Texture::create_depth_texture(&self.device, &self.config, "Depth Texture");
@@ -350,7 +350,7 @@ impl State {
         let delta_time = self.last_update.elapsed();
         if delta_time.as_millis() >= MINIMUM_FRAME_DURATION_IN_MILLIS {
             self.last_update = Instant::now();
-            self.world.camera.update_camera(delta_time);
+
             self.camera_uniform.update_view_proj(&self.world.camera);
             self.queue.write_buffer(
                 &self.camera_buffer,
@@ -375,8 +375,6 @@ impl State {
                 .par_iter_mut()
                 .map(|entity| entity.update_control(&self.input, &delta_time))
                 .map(|entity| entity.update_physics(&delta_time))
-                .collect::<Vec<_>>()
-                .par_iter()
                 .map(|entity| Instance::to_raw(&entity.instance))
                 .collect::<Vec<_>>();
 

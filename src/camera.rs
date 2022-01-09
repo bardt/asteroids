@@ -1,20 +1,13 @@
-use std::time::Duration;
-
 pub struct Camera {
     pub eye: cgmath::Point3<f32>,
     pub target: cgmath::Point3<f32>,
     pub up: cgmath::Vector3<f32>,
-    pub aspect: f32,
-    pub fovy: f32,
-    pub znear: f32,
-    pub zfar: f32,
-    pub speed: f32,
-    pub is_up_pressed: bool,
-    pub is_down_pressed: bool,
-    pub is_forward_pressed: bool,
-    pub is_backward_pressed: bool,
-    pub is_left_pressed: bool,
-    pub is_right_pressed: bool,
+    pub left: f32,
+    pub right: f32,
+    pub top: f32,
+    pub bottom: f32,
+    pub near: f32,
+    pub far: f32,
 }
 
 impl Camera {
@@ -22,49 +15,16 @@ impl Camera {
         // 1. move to position and set rotation of the camera
         let view = cgmath::Matrix4::look_at_rh(self.eye, self.target, self.up);
         // 2. wrap the scene to give effect of depth
-        let proj = cgmath::perspective(cgmath::Deg(self.fovy), self.aspect, self.znear, self.zfar);
+        let proj = cgmath::frustum(
+            self.left,
+            self.right,
+            self.bottom,
+            self.top,
+            self.near,
+            self.far,
+        );
 
         return OPENGL_TO_WGPU_MATRIX * proj * view;
-    }
-
-    pub fn update_camera(&mut self, delta_time: Duration) {
-        use cgmath::InnerSpace;
-        let forward = self.target - self.eye;
-        let forward_norm = forward.normalize();
-        let forward_mag = forward.magnitude();
-
-        let delta_position: f32 = self.speed * (delta_time.as_millis() as f32) / 1000.0;
-        // Prevents glitching when camera gets too close to the
-        // center of the scene.
-        if self.is_forward_pressed && forward_mag > delta_position {
-            self.eye += forward_norm * delta_position;
-        }
-        if self.is_backward_pressed {
-            self.eye -= forward_norm * delta_position;
-        }
-
-        if self.is_up_pressed {
-            self.eye += cgmath::Vector3::unit_z() * delta_position;
-        }
-        if self.is_down_pressed {
-            self.eye -= cgmath::Vector3::unit_z() * delta_position;
-        }
-
-        let right = forward_norm.cross(self.up);
-
-        // Redo radius calc in case the up/ down is pressed.
-        let forward = self.target - self.eye;
-        let forward_mag = forward.magnitude();
-
-        if self.is_right_pressed {
-            // Rescale the distance between the target and eye so
-            // that it doesn't change. The eye therefore still
-            // lies on the circle made by the target and eye.
-            self.eye = self.target - (forward - right * delta_position).normalize() * forward_mag;
-        }
-        if self.is_left_pressed {
-            self.eye = self.target - (forward + right * delta_position).normalize() * forward_mag;
-        }
     }
 
     pub fn desc() -> wgpu::BindGroupLayoutDescriptor<'static> {

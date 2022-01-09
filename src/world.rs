@@ -158,7 +158,10 @@ impl PhysicsProps {
     }
 }
 
+const WORLD_SIZE_MIN: f32 = 100.;
+
 pub struct World {
+    pub size: (f32, f32),
     pub entities: Vec<Entity>,
     pub camera: Camera,
 }
@@ -172,25 +175,50 @@ impl World {
             Entity::make_asteroid((5.0, -5.0, 0.0)),
         ];
 
+        let (size, camera) =
+            Self::world_size_and_camera(config.width as f32 / config.height as f32);
+
+        Self {
+            size,
+            entities,
+            camera,
+        }
+    }
+
+    pub fn resize(&mut self, config: &wgpu::SurfaceConfiguration) {
+        let aspect = config.width as f32 / config.height as f32;
+        let (size, camera) = Self::world_size_and_camera(aspect);
+
+        self.size = size;
+        self.camera = camera;
+    }
+
+    fn world_size_and_camera(aspect: f32) -> ((f32, f32), Camera) {
+        let mut world_width = WORLD_SIZE_MIN;
+        let mut world_height = WORLD_SIZE_MIN;
+        if aspect > 1. {
+            world_width = world_height * aspect;
+        } else {
+            world_height = world_width / aspect;
+        }
+
+        let size = (world_width, world_height);
+
         let camera = Camera {
-            eye: (0.0, -0.01, 50.0).into(),
+            eye: (0.0, 0.0, WORLD_SIZE_MIN * 2.).into(),
             // have it look at the origin
             target: (0.0, 0.0, 0.0).into(),
             // which way is "up"
-            up: cgmath::Vector3::unit_z(),
-            aspect: config.width as f32 / config.height as f32,
-            fovy: 45.0,
-            znear: 0.1,
-            zfar: 200.0,
-            speed: 5.0,
-            is_up_pressed: false,
-            is_down_pressed: false,
-            is_forward_pressed: false,
-            is_backward_pressed: false,
-            is_left_pressed: false,
-            is_right_pressed: false,
+            up: cgmath::Vector3::unit_y(),
+
+            left: -world_width / 2.,
+            right: world_width / 2.,
+            top: world_height / 2.,
+            bottom: -world_height / 2.,
+            near: WORLD_SIZE_MIN * 2. - 10.,
+            far: WORLD_SIZE_MIN * 2. + 10.,
         };
 
-        Self { entities, camera }
+        (size, camera)
     }
 }

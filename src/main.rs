@@ -16,7 +16,10 @@ use winit::{
 fn main() {
     env_logger::init();
     let event_loop = EventLoop::new();
-    let window = WindowBuilder::new().build(&event_loop).unwrap();
+    let window = WindowBuilder::new()
+        .with_title("Asteroids")
+        .build(&event_loop)
+        .unwrap();
 
     let mut state = pollster::block_on(State::new(&window));
 
