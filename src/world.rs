@@ -176,7 +176,7 @@ pub struct World {
 impl World {
     pub fn init(config: &wgpu::SurfaceConfiguration) -> Self {
         let entities: Vec<Entity> = vec![
-            Entity::make_spaceship((0.0, 0.0, 0.0), 90.),
+            Entity::make_spaceship((0.0, 0.0, 0.0), 0.),
             Entity::make_asteroid((5.0, 5.0, 0.0)),
             Entity::make_asteroid((-5.0, 5.0, 0.0)),
             Entity::make_asteroid((5.0, -5.0, 0.0)),
@@ -210,20 +210,20 @@ impl World {
         }
 
         let size = (world_width, world_height);
+        println!("World size: {:?}", size);
 
         let camera = Camera {
-            eye: (0.0, 0.0, WORLD_SIZE_MIN * 2.).into(),
+            eye: (0.0, -1.0, WORLD_SIZE_MIN * 10.).into(),
             // have it look at the origin
             target: (0.0, 0.0, 0.0).into(),
             // which way is "up"
             up: cgmath::Vector3::unit_y(),
-
             left: -world_width / 2.,
             right: world_width / 2.,
             top: world_height / 2.,
             bottom: -world_height / 2.,
-            near: WORLD_SIZE_MIN * 2. - 10.,
-            far: WORLD_SIZE_MIN * 2. + 10.,
+            near: WORLD_SIZE_MIN * 10. - 2.,
+            far: WORLD_SIZE_MIN * 10. + 2.,
         };
 
         (size, camera)
