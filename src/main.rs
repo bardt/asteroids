@@ -1,4 +1,6 @@
 mod camera;
+mod collision;
+mod gamestate;
 mod input;
 mod instance;
 mod model;

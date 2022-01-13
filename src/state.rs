@@ -7,7 +7,7 @@ use crate::{
 };
 
 use cgmath::Rotation3;
-use rayon::iter::{IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::time::Instant;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use winit::{event::WindowEvent, window::Window};
@@ -168,15 +168,11 @@ impl State {
 
         // INSTANCES
 
-        let instances = world
-            .entities
+        let instance_data = world
+            .gamestate
+            .instances()
             .iter()
-            .map(|entity| entity.instance)
-            .collect::<Vec<_>>();
-
-        let instance_data = instances
-            .iter()
-            .map(|instance| {
+            .map(|(_name, instance)| {
                 world
                     .add_ghost_instances(instance)
                     .par_iter()
@@ -361,6 +357,12 @@ impl State {
         if delta_time.as_millis() >= MINIMUM_FRAME_DURATION_IN_MILLIS {
             self.last_update = Instant::now();
 
+            self.world
+                .gamestate
+                .control_system(&self.input, &delta_time)
+                .physics_system(self.world.size, &delta_time)
+                .collision_system(self.world.size);
+
             self.camera_uniform.update_view_proj(&self.world.camera);
             self.queue.write_buffer(
                 &self.camera_buffer,
@@ -379,23 +381,14 @@ impl State {
                 bytemuck::cast_slice(&[self.light_uniform]),
             );
 
-            self.world
-                .entities
-                .par_iter_mut()
-                .for_each(|entity| entity.update_control(&self.input, &delta_time));
-
-            self.world
-                .entities
-                .par_iter_mut()
-                .for_each(|entity| entity.update_physics(self.world.size, &delta_time));
-
             let instance_data = self
                 .world
-                .entities
+                .gamestate
+                .instances()
                 .par_iter()
-                .map(|entity| {
+                .map(|(_, instance)| {
                     self.world
-                        .add_ghost_instances(&entity.instance)
+                        .add_ghost_instances(instance)
                         .par_iter()
                         .map(|instance| Instance::to_raw(instance))
                         .collect::<Vec<_>>()
@@ -481,12 +474,12 @@ impl State {
                 let mut entity_name = "";
                 let instances_per_entity = 9; // because of ghost instances to make world looping
 
-                for entity in &self.world.entities {
+                for entity in &self.world.gamestate.instances() {
                     if entity_name == "" {
-                        entity_name = entity.name.as_str();
+                        entity_name = entity.0;
                     }
 
-                    if entity_name == entity.name.as_str() {
+                    if entity_name == entity.0 {
                         size += instances_per_entity;
                     } else {
                         render_pass.draw_named_mesh_instanced(
@@ -497,7 +490,7 @@ impl State {
                             &self.light_bind_group,
                         );
 
-                        entity_name = entity.name.as_str();
+                        entity_name = entity.0;
                         offset = size;
                         size = instances_per_entity;
                     }

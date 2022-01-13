@@ -1,7 +1,18 @@
+use cgmath::Zero;
+
 #[derive(Copy, Clone)]
 pub struct Instance {
     pub(crate) position: cgmath::Vector3<f32>,
     pub(crate) rotation: cgmath::Quaternion<f32>,
+}
+
+impl Default for Instance {
+    fn default() -> Self {
+        Self {
+            position: (0.0, 0.0, 0.0).into(),
+            rotation: cgmath::Quaternion::zero(),
+        }
+    }
 }
 
 #[repr(C)]
