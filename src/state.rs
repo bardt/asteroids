@@ -1,9 +1,10 @@
 use crate::{
     camera,
+    gamestate::GameState,
     input::Input,
     instance::{Instance, InstanceRaw},
     model::{self, DrawModel, Model, Vertex},
-    texture, world,
+    texture,
 };
 
 use cgmath::Rotation3;
@@ -43,7 +44,7 @@ pub struct State {
     light_render_pipeline: wgpu::RenderPipeline,
     last_update: Instant,
     last_render: Instant,
-    world: world::World,
+    gamestate: GameState,
     input: Input,
 }
 
@@ -97,12 +98,13 @@ impl State {
 
         let texture_bind_group_layout = device.create_bind_group_layout(&texture::Texture::desc());
 
-        let world = world::World::init(&config);
+        let aspect = config.width as f32 / config.height as f32;
+        let gamestate = GameState::new_game(aspect);
 
         // CAMERA
 
         let mut camera_uniform = camera::CameraUniform::new();
-        camera_uniform.update_view_proj(&world.camera);
+        camera_uniform.update_view_proj(&gamestate.world.camera);
 
         let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Camera Buffer"),
@@ -168,12 +170,12 @@ impl State {
 
         // INSTANCES
 
-        let instance_data = world
-            .gamestate
+        let instance_data = gamestate
             .instances()
             .iter()
             .map(|(_name, instance)| {
-                world
+                gamestate
+                    .world
                     .add_ghost_instances(instance)
                     .par_iter()
                     .map(|instance| Instance::to_raw(instance))
@@ -259,7 +261,7 @@ impl State {
             queue,
             config,
             size,
-            world,
+            gamestate,
             camera_uniform,
             camera_buffer,
             camera_bind_group,
@@ -337,7 +339,8 @@ impl State {
             self.size = new_size;
             self.config.width = new_size.width;
             self.config.height = new_size.height;
-            self.world.resize(&self.config);
+            // @TODO: leave black space around world map on resize
+            // self.world.resize(&self.config);
             self.surface.configure(&self.device, &self.config);
             self.depth_texture =
                 texture::Texture::create_depth_texture(&self.device, &self.config, "Depth Texture");
@@ -357,13 +360,33 @@ impl State {
         if delta_time.as_millis() >= MINIMUM_FRAME_DURATION_IN_MILLIS {
             self.last_update = Instant::now();
 
-            self.world
-                .gamestate
+            self.gamestate
                 .control_system(&self.input, &delta_time)
-                .physics_system(self.world.size, &delta_time)
-                .collision_system(self.world.size);
+                .physics_system(&delta_time)
+                .collision_system();
 
-            self.camera_uniform.update_view_proj(&self.world.camera);
+            let instance_data = self
+                .gamestate
+                .instances()
+                .par_iter()
+                .map(|(_, instance)| {
+                    self.gamestate
+                        .world
+                        .add_ghost_instances(instance)
+                        .par_iter()
+                        .map(|instance| Instance::to_raw(instance))
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>()
+                .concat();
+            self.queue.write_buffer(
+                &self.instance_buffer,
+                0,
+                bytemuck::cast_slice(&instance_data),
+            );
+
+            self.camera_uniform
+                .update_view_proj(&self.gamestate.world.camera);
             self.queue.write_buffer(
                 &self.camera_buffer,
                 0,
@@ -380,27 +403,6 @@ impl State {
                 0,
                 bytemuck::cast_slice(&[self.light_uniform]),
             );
-
-            let instance_data = self
-                .world
-                .gamestate
-                .instances()
-                .par_iter()
-                .map(|(_, instance)| {
-                    self.world
-                        .add_ghost_instances(instance)
-                        .par_iter()
-                        .map(|instance| Instance::to_raw(instance))
-                        .collect::<Vec<_>>()
-                })
-                .collect::<Vec<_>>()
-                .concat();
-
-            self.queue.write_buffer(
-                &self.instance_buffer,
-                0,
-                bytemuck::cast_slice(&instance_data),
-            )
         }
     }
 
@@ -474,7 +476,7 @@ impl State {
                 let mut entity_name = "";
                 let instances_per_entity = 9; // because of ghost instances to make world looping
 
-                for entity in &self.world.gamestate.instances() {
+                for entity in &self.gamestate.instances() {
                     if entity_name == "" {
                         entity_name = entity.0;
                     }

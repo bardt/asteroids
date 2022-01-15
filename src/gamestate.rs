@@ -1,22 +1,71 @@
 use crate::collision;
+use crate::world::World;
+use crate::world::WorldPosition;
 use crate::{input::Input, instance::Instance};
 use cgmath::prelude::*;
 use cgmath::Deg;
-use cgmath::Vector3;
 use rand::Rng;
 use rayon::iter::IntoParallelRefMutIterator;
 use rayon::iter::ParallelIterator;
+
 use std::time::Duration;
 
-#[derive(Default)]
 pub struct GameState {
     entities: Vec<Option<Entity>>,
+    pub world: World,
 }
 
 #[allow(dead_code)]
 type EntityIndex = usize;
 
 impl GameState {
+    pub fn new_game(aspect: f32) -> Self {
+        let mut game = Self {
+            entities: vec![],
+            world: World::init(aspect),
+        };
+
+        game.push(game.make_spaceship((0.0, 0.0, 0.0), 0.));
+        game.push(game.make_asteroid((5.0, 5.0, 0.0)));
+        game.push(game.make_asteroid((-5.0, 5.0, 0.0)));
+        game.push(game.make_asteroid((5.0, -5.0, 0.0)));
+
+        game
+    }
+
+    pub fn make_asteroid(&self, position: (f32, f32, f32)) -> Entity {
+        Entity {
+            name: "Asteroid".to_string(),
+
+            position: self.world.new_position(position.into()),
+            rotation: cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), Deg(0.0)),
+
+            physics: Some(Physics::random(1., 100.)),
+            collision: Some(Shape::Sphere {
+                origin: self.world.new_position((0.0, 0.0, 0.0).into()),
+                radius: 1.0,
+            }),
+            ..Default::default()
+        }
+    }
+
+    pub fn make_spaceship(&self, position: (f32, f32, f32), rotation_angle: f32) -> Entity {
+        Entity {
+            name: "Spaceship".to_string(),
+
+            position: self.world.new_position(position.into()),
+            rotation: cgmath::Quaternion::from_angle_z(Deg(rotation_angle)),
+
+            physics: Some(Physics::default()),
+            collision: Some(Shape::Sphere {
+                origin: self.world.new_position((0.0, 0.0, 0.0).into()),
+                radius: 5.0,
+            }),
+            control: Some(Control::enabled()),
+            ..Default::default()
+        }
+    }
+
     pub fn push(&mut self, entity: Entity) {
         self.entities.push(Some(entity))
     }
@@ -25,13 +74,19 @@ impl GameState {
         self.entities[index] = None
     }
 
-    pub fn instances(&self) -> Vec<(&str, &Instance)> {
+    pub fn instances(&self) -> Vec<(&str, Instance)> {
         self.entities
             .iter()
             .filter_map(|option_entity| {
-                option_entity
-                    .as_ref()
-                    .map(|entity| (entity.name.as_str(), &entity.instance))
+                option_entity.as_ref().map(|entity| {
+                    (
+                        entity.name.as_str(),
+                        Instance {
+                            position: entity.position.to_vector3(),
+                            rotation: entity.rotation,
+                        },
+                    )
+                })
             })
             .collect::<Vec<_>>()
     }
@@ -47,18 +102,18 @@ impl GameState {
         self
     }
 
-    pub fn physics_system(&mut self, world_size: (f32, f32), delta_time: &Duration) -> &mut Self {
+    pub fn physics_system(&mut self, delta_time: &Duration) -> &mut Self {
         self.entities
             .par_iter_mut()
             .for_each(|option_entity| match option_entity {
-                Some(entity) => entity.update_physics(world_size, delta_time),
+                Some(entity) => entity.update_physics(delta_time),
                 None => (),
             });
 
         self
     }
 
-    pub fn collision_system(&mut self, world_size: (f32, f32)) -> &mut Self {
+    pub fn collision_system(&mut self) -> &mut Self {
         let shapes = self
             .entities
             .par_iter_mut()
@@ -66,76 +121,55 @@ impl GameState {
                 Some(entity) => entity
                     .collision
                     .as_ref()
-                    .map(|shape| shape.translate(entity.instance.position)),
+                    .map(|shape| shape.translate(entity.position)),
                 None => None,
             })
             .collect::<Vec<_>>();
 
-        let collisions = collision::find_collisions(world_size, shapes);
+        let collisions = collision::find_collisions(shapes);
         println!("Collisions: {:?}", collisions);
 
         self
     }
 }
 
-#[derive(Default)]
 pub struct Entity {
     pub name: String,
-    pub instance: Instance,
+    pub position: WorldPosition,
+    pub rotation: cgmath::Quaternion<f32>,
+    // pub instance: Instance,
     pub physics: Option<Physics>,
     pub collision: Option<Shape>,
     pub control: Option<Control>,
 }
 
+impl Default for Entity {
+    fn default() -> Self {
+        Self {
+            name: String::default(),
+            position: WorldPosition::default(),
+            rotation: cgmath::Quaternion::zero(),
+            physics: Option::default(),
+            collision: Option::default(),
+            control: Option::default(),
+        }
+    }
+}
+
 impl Entity {
-    pub fn make_asteroid(position: (f32, f32, f32)) -> Entity {
-        Self {
-            name: "Asteroid".to_string(),
-            instance: Instance {
-                position: position.into(),
-                rotation: cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), Deg(0.0)),
-            },
-            physics: Some(Physics::random(1., 100.)),
-            collision: Some(Shape::Sphere {
-                origin: (0.0, 0.0, 0.0).into(),
-                radius: 1.0,
-            }),
-            ..Default::default()
-        }
-    }
-
-    pub fn make_spaceship(position: (f32, f32, f32), rotation_angle: f32) -> Entity {
-        Self {
-            name: "Spaceship".to_string(),
-            instance: Instance {
-                position: position.into(),
-                rotation: cgmath::Quaternion::from_angle_z(Deg(rotation_angle)),
-            },
-            physics: Some(Physics::default()),
-            collision: Some(Shape::Sphere {
-                origin: (0.0, 0.0, 0.0).into(),
-                radius: 5.0,
-            }),
-            control: Some(Control::enabled()),
-            ..Default::default()
-        }
-    }
-
-    pub fn update_physics(&mut self, world_size: (f32, f32), dtime: &Duration) {
+    pub fn update_physics(&mut self, dtime: &Duration) {
         match &self.physics {
             Some(physics) => {
                 /*
                 @TODO: limit maximum linear speed
                 */
-                self.instance.position = world_normalize(
-                    self.instance.position
-                        + physics.linear_speed * (dtime.as_millis() as f32) / 1000.0,
-                    world_size,
-                );
+                self.position = self
+                    .position
+                    .translate(physics.linear_speed * (dtime.as_millis() as f32) / 1000.0);
 
-                self.instance.rotation = cgmath::Quaternion::nlerp(
-                    self.instance.rotation,
-                    self.instance.rotation * physics.angular_speed,
+                self.rotation = cgmath::Quaternion::nlerp(
+                    self.rotation,
+                    self.rotation * physics.angular_speed,
                     (dtime.as_millis() as f32) / 1000.0,
                 );
             }
@@ -146,8 +180,6 @@ impl Entity {
     pub fn update_control(&mut self, input: &Input, dtime: &Duration) {
         match (&self.control, &mut self.physics) {
             (Some(Control { enabled: true, .. }), Some(physics)) => {
-                let instance = &mut self.instance;
-
                 let rotation_speed = 180.;
                 let linear_acceleration = 50.;
 
@@ -155,20 +187,20 @@ impl Entity {
                 let delta_angle = delta_time * rotation_speed;
                 let delta_linear_speed = delta_time * linear_acceleration;
 
-                let direction = instance.rotation.rotate_vector(cgmath::Vector3::unit_y()); //cgmath::Vector3 { x, y, z };
+                let direction = self.rotation.rotate_vector(cgmath::Vector3::unit_y()); //cgmath::Vector3 { x, y, z };
 
                 if input.is_forward_pressed {
                     physics.linear_speed += direction * delta_linear_speed;
                 }
 
                 if input.is_right_pressed {
-                    instance.rotation = instance.rotation
-                        * cgmath::Quaternion::from_angle_z(cgmath::Deg(-delta_angle))
+                    self.rotation =
+                        self.rotation * cgmath::Quaternion::from_angle_z(cgmath::Deg(-delta_angle))
                 }
 
                 if input.is_left_pressed {
-                    instance.rotation = instance.rotation
-                        * cgmath::Quaternion::from_angle_z(cgmath::Deg(delta_angle))
+                    self.rotation =
+                        self.rotation * cgmath::Quaternion::from_angle_z(cgmath::Deg(delta_angle))
                 }
             }
             _ => (),
@@ -178,11 +210,11 @@ impl Entity {
 
 #[derive(Debug, Clone)]
 pub enum Shape {
-    Sphere { origin: Vector3<f32>, radius: f32 },
+    Sphere { origin: WorldPosition, radius: f32 },
 }
 
 impl Shape {
-    pub(crate) fn overlaps(&self, another_shape: &Shape, world_size: (f32, f32)) -> bool {
+    pub(crate) fn overlaps(&self, another_shape: &Shape) -> bool {
         match (self, another_shape) {
             (
                 Shape::Sphere { origin, radius },
@@ -190,14 +222,14 @@ impl Shape {
                     origin: other_origin,
                     radius: other_radius,
                 },
-            ) => world_distance(*origin, *other_origin, world_size) < (radius + other_radius),
+            ) => WorldPosition::distance(origin, other_origin) < (radius + other_radius),
         }
     }
 
-    pub(crate) fn translate(&self, position: Vector3<f32>) -> Shape {
+    pub(crate) fn translate(&self, position: WorldPosition) -> Shape {
         match *self {
             Shape::Sphere { origin, radius } => Shape::Sphere {
-                origin: origin + position,
+                origin: origin.translate(position.to_vector3()),
                 radius,
             },
         }
@@ -250,30 +282,5 @@ impl Default for Physics {
             linear_speed: (0.0, 0.0, 0.0).into(),
             angular_speed: cgmath::Quaternion::zero(),
         }
-    }
-}
-
-fn world_distance(a: Vector3<f32>, b: Vector3<f32>, world_size: (f32, f32)) -> f32 {
-    let world = Vector3 {
-        x: world_size.0,
-        y: world_size.1,
-        z: 0.0,
-    };
-
-    Vector3::distance(
-        world_normalize(a, world_size),
-        world_normalize(b, world_size),
-    )
-    .min(Vector3::distance(
-        world_normalize(a + world, world_size),
-        world_normalize(b + world, world_size),
-    ))
-}
-
-fn world_normalize(position: Vector3<f32>, world_size: (f32, f32)) -> Vector3<f32> {
-    Vector3 {
-        x: position.x % world_size.0,
-        y: position.y % world_size.1,
-        z: position.z,
     }
 }

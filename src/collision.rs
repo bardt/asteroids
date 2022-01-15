@@ -1,16 +1,13 @@
 use crate::gamestate::Shape;
 
-pub(crate) fn find_collisions(
-    world_size: (f32, f32),
-    shapes: Vec<Option<Shape>>,
-) -> Vec<Vec<usize>> {
+pub(crate) fn find_collisions(shapes: Vec<Option<Shape>>) -> Vec<Vec<usize>> {
     let mut total_collisions = vec![];
 
     for (i, shape) in shapes.iter().enumerate().filter_map(to_option) {
         let mut this_shape_collisions = vec![i];
 
         for (j, another_shape) in shapes.iter().enumerate().skip(i + 1).filter_map(to_option) {
-            if Shape::overlaps(shape, another_shape, world_size) {
+            if Shape::overlaps(shape, another_shape) {
                 this_shape_collisions.push(j);
             }
         }
@@ -30,81 +27,73 @@ fn to_option<T>(t: (usize, &Option<T>)) -> Option<(usize, &T)> {
 #[test]
 fn test_find_collisions() {
     let empty: Vec<Vec<usize>> = vec![];
-    let world_size = (20., 20.);
 
-    assert_eq!(find_collisions(world_size, vec![]), empty);
+    fn origin(v: (f32, f32, f32)) -> crate::world::WorldPosition {
+        let world = crate::world::World::init(1.0);
+        world.new_position(v.into())
+    }
+
+    assert_eq!(find_collisions(vec![]), empty);
     assert_eq!(
-        find_collisions(
-            world_size,
-            vec![
-                Some(Shape::Sphere {
-                    origin: (0.0, 0.0, 0.0).into(),
-                    radius: 2.
-                }),
-                Some(Shape::Sphere {
-                    origin: (4.0, 0.0, 0.0).into(),
-                    radius: 1.
-                })
-            ]
-        ),
+        find_collisions(vec![
+            Some(Shape::Sphere {
+                origin: origin((0.0, 0.0, 0.0)),
+                radius: 20.
+            }),
+            Some(Shape::Sphere {
+                origin: origin((40.0, 0.0, 0.0)),
+                radius: 10.
+            })
+        ]),
         empty
     );
     assert_eq!(
-        find_collisions(
-            world_size,
-            vec![
-                Some(Shape::Sphere {
-                    origin: (0.0, 0.0, 0.0).into(),
-                    radius: 2.
-                }),
-                Some(Shape::Sphere {
-                    origin: (4.0, 0.0, 0.0).into(),
-                    radius: 1.
-                }),
-                Some(Shape::Sphere {
-                    origin: (-3.0, 0.0, 0.0).into(),
-                    radius: 3.
-                })
-            ]
-        ),
+        find_collisions(vec![
+            Some(Shape::Sphere {
+                origin: origin((0.0, 0.0, 0.0)),
+                radius: 20.
+            }),
+            Some(Shape::Sphere {
+                origin: origin((40.0, 0.0, 0.0)),
+                radius: 10.
+            }),
+            Some(Shape::Sphere {
+                origin: origin((-20.0, 0.0, 0.0)),
+                radius: 20.
+            })
+        ]),
         vec![vec![0_usize, 2_usize]]
     );
     assert_eq!(
-        find_collisions(
-            world_size,
-            vec![
-                None,
-                Some(Shape::Sphere {
-                    origin: (0.0, 0.0, 0.0).into(),
-                    radius: 2.
-                }),
-                Some(Shape::Sphere {
-                    origin: (4.0, 0.0, 0.0).into(),
-                    radius: 1.
-                }),
-                Some(Shape::Sphere {
-                    origin: (-3.0, 0.0, 0.0).into(),
-                    radius: 3.
-                })
-            ]
-        ),
+        find_collisions(vec![
+            None,
+            Some(Shape::Sphere {
+                origin: origin((0.0, 0.0, 0.0)),
+                radius: 20.
+            }),
+            Some(Shape::Sphere {
+                origin: origin((40.0, 0.0, 0.0)),
+                radius: 10.
+            }),
+            Some(Shape::Sphere {
+                origin: origin((-20.0, 0.0, 0.0)),
+                radius: 20.
+            })
+        ]),
         vec![vec![1_usize, 3_usize]]
     );
     assert_eq!(
-        find_collisions(
-            world_size,
-            vec![
-                None,
-                Some(Shape::Sphere {
-                    origin: (0.0, -9.0, 0.0).into(),
-                    radius: 2.
-                }),
-                Some(Shape::Sphere {
-                    origin: (0.0, 9.0, 0.0).into(),
-                    radius: 2.
-                }),
-            ]
-        ),
+        find_collisions(vec![
+            None,
+            Some(Shape::Sphere {
+                origin: origin((0.0, -40.0, 0.0)),
+                radius: 15.
+            }),
+            Some(Shape::Sphere {
+                origin: origin((0.0, 40.0, 0.0)),
+                radius: 15.
+            }),
+        ]),
         vec![vec![1_usize, 2_usize]]
     );
 }
