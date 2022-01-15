@@ -158,15 +158,21 @@ impl Default for Entity {
 
 impl Entity {
     pub fn update_physics(&mut self, dtime: &Duration) {
-        match &self.physics {
+        match &mut self.physics {
             Some(physics) => {
-                /*
-                @TODO: limit maximum linear speed
-                */
+                // Limit maximum speed
+                let max_linear_speed = 60_f32;
+                if physics.linear_speed.magnitude2() > 0. {
+                    let new_magnitude = max_linear_speed.min(physics.linear_speed.magnitude());
+                    physics.linear_speed = physics.linear_speed.normalize_to(new_magnitude);
+                }
+
+                // Move
                 self.position = self
                     .position
                     .translate(physics.linear_speed * (dtime.as_millis() as f32) / 1000.0);
 
+                // Rotate
                 self.rotation = cgmath::Quaternion::nlerp(
                     self.rotation,
                     self.rotation * physics.angular_speed,
