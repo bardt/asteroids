@@ -45,7 +45,7 @@ impl GameState {
                     origin: self.world.new_position((0.0, 0.0, 0.0).into()),
                     radius: 1.0,
                 },
-                on_collision: |_before, _this, _after| {},
+                on_collision: |gamestate, this_id, _other_ids| gamestate.kill(this_id),
             }),
             ..Default::default()
         }
@@ -64,7 +64,8 @@ impl GameState {
                     origin: self.world.new_position((0.0, 0.0, 0.0).into()),
                     radius: 5.0,
                 },
-                on_collision: |_before, this, _after| {
+                on_collision: |gamestate, this_id, _other_ids| {
+                    let this = gamestate.get_entity(this_id).unwrap();
                     println!("Spaceship collided at {:?}", this.position);
                 },
             }),
@@ -77,7 +78,7 @@ impl GameState {
         self.entities.push(Some(entity))
     }
 
-    pub fn _kill(&mut self, index: EntityIndex) {
+    pub fn kill(&mut self, index: EntityIndex) {
         self.entities[index] = None
     }
 
@@ -85,7 +86,7 @@ impl GameState {
         self.entities.get(index).unwrap().as_ref()
     }
 
-    pub fn get_entity_mut(&mut self, index: EntityIndex) -> Option<&mut Entity> {
+    pub fn _get_entity_mut(&mut self, index: EntityIndex) -> Option<&mut Entity> {
         self.entities.get_mut(index).unwrap().as_mut()
     }
 
@@ -143,37 +144,18 @@ impl GameState {
 
         let collisions = collision::find_collisions(shapes);
 
-        // I'm trying to iterate through all entities in a collision group,
-        // and for each one execute its on_collision function
         for collision_group in collisions {
-            // Get entities, collided in current group
-            let mut collided_entities = Vec::with_capacity(collision_group.len());
-            {
-                for id in collision_group.iter().collect::<Vec<_>>() {
-                    match self.get_entity(*id) {
-                        Some(entity) => collided_entities.push((*id, entity.clone())),
-                        None => (),
-                    }
-                }
-            }
-
-            // For each entity in collision group, run its collision handler
-            for index in 0..collided_entities.len() {
-                let before = &collided_entities[0..index]
+            for this_id in &collision_group {
+                let other_ids = &collision_group
                     .iter()
-                    .map(|(_, entity)| *entity)
-                    .collect::<Vec<_>>();
-                let after = &collided_entities[(index + 1)..]
-                    .iter()
-                    .map(|(_, entity)| *entity)
+                    .filter_map(|id| if id == this_id { None } else { Some(*id) })
                     .collect::<Vec<_>>();
 
-                let this_id = collided_entities[index].0;
-                let this = self.get_entity_mut(this_id).unwrap();
+                let this = self.get_entity(*this_id).unwrap();
 
                 match this.collision {
                     Some(collision) => {
-                        (collision.on_collision)(before.as_slice(), this, after.as_slice());
+                        (collision.on_collision)(self, *this_id, other_ids.as_slice());
                     }
                     None => (),
                 }
@@ -268,7 +250,7 @@ impl Entity {
 #[derive(Clone, Copy)]
 pub struct Collision {
     pub shape: Shape,
-    pub on_collision: fn(others_before: &[Entity], &mut Entity, others_after: &[Entity]),
+    pub on_collision: fn(&mut GameState, this_id: usize, other_ids: &[usize]),
 }
 
 #[derive(Debug, Clone, Copy)]
