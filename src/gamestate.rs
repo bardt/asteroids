@@ -5,6 +5,7 @@ use crate::{input::Input, instance::Instance};
 use cgmath::prelude::*;
 use cgmath::Deg;
 use rand::Rng;
+use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::IntoParallelRefMutIterator;
 use rayon::iter::ParallelIterator;
 
@@ -35,15 +36,16 @@ impl GameState {
 
     pub fn make_asteroid(&self, position: (f32, f32, f32)) -> Entity {
         Entity {
-            name: "Asteroid".to_string(),
-
+            name: "Asteroid",
             position: self.world.new_position(position.into()),
             rotation: cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), Deg(0.0)),
-
             physics: Some(Physics::random(1., 100.)),
-            collision: Some(Shape::Sphere {
-                origin: self.world.new_position((0.0, 0.0, 0.0).into()),
-                radius: 1.0,
+            collision: Some(Collision {
+                shape: Shape::Sphere {
+                    origin: self.world.new_position((0.0, 0.0, 0.0).into()),
+                    radius: 1.0,
+                },
+                on_collision: |_before, _this, _after| {},
             }),
             ..Default::default()
         }
@@ -51,15 +53,20 @@ impl GameState {
 
     pub fn make_spaceship(&self, position: (f32, f32, f32), rotation_angle: f32) -> Entity {
         Entity {
-            name: "Spaceship".to_string(),
+            name: "Spaceship",
 
             position: self.world.new_position(position.into()),
             rotation: cgmath::Quaternion::from_angle_z(Deg(rotation_angle)),
 
             physics: Some(Physics::default()),
-            collision: Some(Shape::Sphere {
-                origin: self.world.new_position((0.0, 0.0, 0.0).into()),
-                radius: 5.0,
+            collision: Some(Collision {
+                shape: Shape::Sphere {
+                    origin: self.world.new_position((0.0, 0.0, 0.0).into()),
+                    radius: 5.0,
+                },
+                on_collision: |_before, this, _after| {
+                    println!("Spaceship collided at {:?}", this.position);
+                },
             }),
             control: Some(Control::enabled()),
             ..Default::default()
@@ -74,13 +81,21 @@ impl GameState {
         self.entities[index] = None
     }
 
+    pub fn get_entity(&self, index: EntityIndex) -> Option<&Entity> {
+        self.entities.get(index).unwrap().as_ref()
+    }
+
+    pub fn get_entity_mut(&mut self, index: EntityIndex) -> Option<&mut Entity> {
+        self.entities.get_mut(index).unwrap().as_mut()
+    }
+
     pub fn instances(&self) -> Vec<(&str, Instance)> {
         self.entities
             .iter()
             .filter_map(|option_entity| {
                 option_entity.as_ref().map(|entity| {
                     (
-                        entity.name.as_str(),
+                        entity.name,
                         Instance {
                             position: entity.position.to_vector3(),
                             rotation: entity.rotation,
@@ -116,37 +131,73 @@ impl GameState {
     pub fn collision_system(&mut self) -> &mut Self {
         let shapes = self
             .entities
-            .par_iter_mut()
+            .par_iter()
             .map(|option_entity| match option_entity {
                 Some(entity) => entity
                     .collision
                     .as_ref()
-                    .map(|shape| shape.translate(entity.position)),
+                    .map(|collision| collision.shape.translate(entity.position)),
                 None => None,
             })
             .collect::<Vec<_>>();
 
         let collisions = collision::find_collisions(shapes);
-        println!("Collisions: {:?}", collisions);
+
+        // I'm trying to iterate through all entities in a collision group,
+        // and for each one execute its on_collision function
+        for collision_group in collisions {
+            // Get entities, collided in current group
+            let mut collided_entities = Vec::with_capacity(collision_group.len());
+            {
+                for id in collision_group.iter().collect::<Vec<_>>() {
+                    match self.get_entity(*id) {
+                        Some(entity) => collided_entities.push((*id, entity.clone())),
+                        None => (),
+                    }
+                }
+            }
+
+            // For each entity in collision group, run its collision handler
+            for index in 0..collided_entities.len() {
+                let before = &collided_entities[0..index]
+                    .iter()
+                    .map(|(_, entity)| *entity)
+                    .collect::<Vec<_>>();
+                let after = &collided_entities[(index + 1)..]
+                    .iter()
+                    .map(|(_, entity)| *entity)
+                    .collect::<Vec<_>>();
+
+                let this_id = collided_entities[index].0;
+                let this = self.get_entity_mut(this_id).unwrap();
+
+                match this.collision {
+                    Some(collision) => {
+                        (collision.on_collision)(before.as_slice(), this, after.as_slice());
+                    }
+                    None => (),
+                }
+            }
+        }
 
         self
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct Entity {
-    pub name: String,
+    pub name: &'static str,
     pub position: WorldPosition,
     pub rotation: cgmath::Quaternion<f32>,
-    // pub instance: Instance,
     pub physics: Option<Physics>,
-    pub collision: Option<Shape>,
+    pub collision: Option<Collision>,
     pub control: Option<Control>,
 }
 
 impl Default for Entity {
     fn default() -> Self {
         Self {
-            name: String::default(),
+            name: "",
             position: WorldPosition::default(),
             rotation: cgmath::Quaternion::zero(),
             physics: Option::default(),
@@ -214,7 +265,13 @@ impl Entity {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Copy)]
+pub struct Collision {
+    pub shape: Shape,
+    pub on_collision: fn(others_before: &[Entity], &mut Entity, others_after: &[Entity]),
+}
+
+#[derive(Debug, Clone, Copy)]
 pub enum Shape {
     Sphere { origin: WorldPosition, radius: f32 },
 }
@@ -242,6 +299,7 @@ impl Shape {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct Control {
     enabled: bool,
 }
@@ -252,6 +310,7 @@ impl Control {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct Physics {
     linear_speed: cgmath::Vector3<f32>,
     angular_speed: cgmath::Quaternion<f32>,
