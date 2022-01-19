@@ -91,6 +91,46 @@ impl GameState {
         }
     }
 
+    pub fn make_laser(position: WorldPosition, rotation: cgmath::Quaternion<f32>) -> Entity {
+        let linear_speed = 100.;
+
+        Entity {
+            name: "Laser",
+            position,
+            rotation,
+            physics: Some(Physics {
+                linear_speed: rotation.rotate_vector(cgmath::Vector3::unit_y()) * linear_speed,
+                angular_speed: cgmath::Quaternion::zero(),
+            }),
+            collision: Some(Collision {
+                shape: Shape::Sphere {
+                    origin: position.to_zero(),
+                    radius: 1.,
+                },
+                on_collision: |gamestate, this_id, other_ids| {
+                    let mut should_kill_self = false;
+
+                    for id in other_ids {
+                        match gamestate.get_entity(*id) {
+                            Some(other) => {
+                                if other.name == "Asteroid" {
+                                    gamestate.kill(*id);
+                                    should_kill_self = true;
+                                }
+                            }
+                            None => (),
+                        }
+                    }
+
+                    if should_kill_self {
+                        gamestate.kill(this_id);
+                    }
+                },
+            }),
+            ..Default::default()
+        }
+    }
+
     pub fn push(&mut self, entity: Entity) {
         self.entities.push(Some(entity))
     }
@@ -125,12 +165,46 @@ impl GameState {
     }
 
     pub fn control_system(&mut self, input: &Input, delta_time: &Duration) -> &mut Self {
-        self.entities
-            .par_iter_mut()
-            .for_each(|option_entity| match option_entity {
-                Some(entity) => entity.update_control(input, delta_time),
+        let mut to_spawn = vec![];
+
+        for option_entity in &mut self.entities {
+            match option_entity {
+                Some(entity) => match (entity.control, &mut entity.physics) {
+                    (Some(Control { enabled: true, .. }), Some(physics)) => {
+                        let rotation_speed = 180.;
+                        let linear_acceleration = 50.;
+
+                        let dtime = (delta_time.as_millis() as f32) / 1000.0;
+                        let delta_angle = dtime * rotation_speed;
+                        let delta_linear_speed = dtime * linear_acceleration;
+
+                        let direction = entity.rotation.rotate_vector(cgmath::Vector3::unit_y());
+
+                        if input.is_forward_pressed {
+                            physics.linear_speed += direction * delta_linear_speed;
+                        }
+
+                        if input.is_right_pressed {
+                            entity.rotation = entity.rotation
+                                * cgmath::Quaternion::from_angle_z(cgmath::Deg(-delta_angle))
+                        }
+
+                        if input.is_left_pressed {
+                            entity.rotation = entity.rotation
+                                * cgmath::Quaternion::from_angle_z(cgmath::Deg(delta_angle))
+                        }
+
+                        if input.is_backward_pressed {
+                            to_spawn.push(GameState::make_laser(entity.position, entity.rotation));
+                        }
+                    }
+                    _ => (),
+                },
                 None => (),
-            });
+            }
+        }
+
+        to_spawn.into_iter().for_each(|entity| self.push(entity));
 
         self
     }
@@ -232,36 +306,6 @@ impl Entity {
                 );
             }
             None => (),
-        }
-    }
-
-    pub fn update_control(&mut self, input: &Input, dtime: &Duration) {
-        match (&self.control, &mut self.physics) {
-            (Some(Control { enabled: true, .. }), Some(physics)) => {
-                let rotation_speed = 180.;
-                let linear_acceleration = 50.;
-
-                let delta_time = (dtime.as_millis() as f32) / 1000.0;
-                let delta_angle = delta_time * rotation_speed;
-                let delta_linear_speed = delta_time * linear_acceleration;
-
-                let direction = self.rotation.rotate_vector(cgmath::Vector3::unit_y()); //cgmath::Vector3 { x, y, z };
-
-                if input.is_forward_pressed {
-                    physics.linear_speed += direction * delta_linear_speed;
-                }
-
-                if input.is_right_pressed {
-                    self.rotation =
-                        self.rotation * cgmath::Quaternion::from_angle_z(cgmath::Deg(-delta_angle))
-                }
-
-                if input.is_left_pressed {
-                    self.rotation =
-                        self.rotation * cgmath::Quaternion::from_angle_z(cgmath::Deg(delta_angle))
-                }
-            }
-            _ => (),
         }
     }
 }

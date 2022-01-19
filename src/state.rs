@@ -379,6 +379,14 @@ impl State {
                 })
                 .collect::<Vec<_>>()
                 .concat();
+
+            // @TODO override buffer only when the number of instances changes
+            self.instance_buffer = self.device.create_buffer_init(&BufferInitDescriptor {
+                label: Some("Instance Buffer"),
+                contents: bytemuck::cast_slice(&instance_data),
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            });
+
             self.queue.write_buffer(
                 &self.instance_buffer,
                 0,

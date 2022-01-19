@@ -115,6 +115,13 @@ impl WorldPosition {
         ))
     }
 
+    pub fn to_zero(&self) -> Self {
+        Self {
+            position: (0.0, 0.0, 0.0).into(),
+            world_size: self.world_size,
+        }
+    }
+
     pub fn translate(&self, v: cgmath::Vector3<f32>) -> Self {
         Self {
             position: Self::normalize(self.position + v, self.world_size),
