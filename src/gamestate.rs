@@ -64,12 +64,29 @@ impl GameState {
                     origin: self.world.new_position((0.0, 0.0, 0.0).into()),
                     radius: 5.0,
                 },
-                on_collision: |gamestate, this_id, _other_ids| {
-                    let this = gamestate.get_entity(this_id).unwrap();
-                    println!("Spaceship collided at {:?}", this.position);
+                on_collision: |gamestate, this_id, other_ids| {
+                    let asteroids_number = other_ids
+                        .iter()
+                        .flat_map(|id| gamestate.get_entity(*id))
+                        .filter(|entity| entity.name == "Asteroid")
+                        .count();
+
+                    let this = gamestate.get_entity_mut(this_id).unwrap();
+
+                    match &mut this.health {
+                        Some(health) => {
+                            health.deal_damage(asteroids_number);
+                            println!("Spaceship health: {:?}", health.level);
+                            if health.level == 0 {
+                                gamestate.kill(this_id);
+                            }
+                        }
+                        None => (),
+                    }
                 },
             }),
             control: Some(Control::enabled()),
+            health: Some(Health { level: 3 }),
             ..Default::default()
         }
     }
@@ -82,12 +99,12 @@ impl GameState {
         self.entities[index] = None
     }
 
-    pub fn get_entity(&self, index: EntityIndex) -> Option<&Entity> {
-        self.entities.get(index).unwrap().as_ref()
+    pub fn get_entity(&self, id: EntityIndex) -> Option<&Entity> {
+        self.entities.get(id).unwrap().as_ref()
     }
 
-    pub fn _get_entity_mut(&mut self, index: EntityIndex) -> Option<&mut Entity> {
-        self.entities.get_mut(index).unwrap().as_mut()
+    pub fn get_entity_mut(&mut self, id: EntityIndex) -> Option<&mut Entity> {
+        self.entities.get_mut(id).unwrap().as_mut()
     }
 
     pub fn instances(&self) -> Vec<(&str, Instance)> {
@@ -174,6 +191,7 @@ pub struct Entity {
     pub physics: Option<Physics>,
     pub collision: Option<Collision>,
     pub control: Option<Control>,
+    pub health: Option<Health>,
 }
 
 impl Default for Entity {
@@ -185,6 +203,7 @@ impl Default for Entity {
             physics: Option::default(),
             collision: Option::default(),
             control: Option::default(),
+            health: Option::default(),
         }
     }
 }
@@ -329,5 +348,16 @@ impl Default for Physics {
             linear_speed: (0.0, 0.0, 0.0).into(),
             angular_speed: cgmath::Quaternion::zero(),
         }
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct Health {
+    level: usize,
+}
+
+impl Health {
+    fn deal_damage(&mut self, damage: usize) {
+        self.level = (self.level - damage).max(0);
     }
 }
