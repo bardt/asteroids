@@ -76,7 +76,6 @@ impl GameState {
                     match &mut this.health {
                         Some(health) => {
                             health.deal_damage(asteroids_number);
-                            println!("Spaceship health: {:?}", health.level);
                             if health.level == 0 {
                                 gamestate.kill(this_id);
                             }
@@ -92,7 +91,7 @@ impl GameState {
     }
 
     pub fn make_laser(position: WorldPosition, rotation: cgmath::Quaternion<f32>) -> Entity {
-        let linear_speed = 100.;
+        let linear_speed = 200.;
 
         Entity {
             name: "Laser",
@@ -172,33 +171,46 @@ impl GameState {
 
         for option_entity in &mut self.entities {
             match option_entity {
-                Some(entity) => match (entity.control, &mut entity.physics) {
-                    (Some(Control { enabled: true, .. }), Some(physics)) => {
-                        let rotation_speed = 180.;
-                        let linear_acceleration = 50.;
+                Some(entity) => match (&mut entity.control, &mut entity.physics) {
+                    (Some(control), Some(physics)) => {
+                        if control.enabled {
+                            let rotation_speed = 180.;
+                            let linear_acceleration = 50.;
 
-                        let dtime = (delta_time.as_millis() as f32) / 1000.0;
-                        let delta_angle = dtime * rotation_speed;
-                        let delta_linear_speed = dtime * linear_acceleration;
+                            let dtime = (delta_time.as_millis() as f32) / 1000.0;
+                            let delta_angle = dtime * rotation_speed;
+                            let delta_linear_speed = dtime * linear_acceleration;
 
-                        let direction = entity.rotation.rotate_vector(cgmath::Vector3::unit_y());
+                            let direction =
+                                entity.rotation.rotate_vector(cgmath::Vector3::unit_y());
 
-                        if input.is_forward_pressed {
-                            physics.linear_speed += direction * delta_linear_speed;
-                        }
+                            if input.is_forward_pressed {
+                                physics.linear_speed += direction * delta_linear_speed;
+                            }
 
-                        if input.is_right_pressed {
-                            entity.rotation = entity.rotation
-                                * cgmath::Quaternion::from_angle_z(cgmath::Deg(-delta_angle))
-                        }
+                            if input.is_right_pressed {
+                                entity.rotation = entity.rotation
+                                    * cgmath::Quaternion::from_angle_z(cgmath::Deg(-delta_angle))
+                            }
 
-                        if input.is_left_pressed {
-                            entity.rotation = entity.rotation
-                                * cgmath::Quaternion::from_angle_z(cgmath::Deg(delta_angle))
-                        }
+                            if input.is_left_pressed {
+                                entity.rotation = entity.rotation
+                                    * cgmath::Quaternion::from_angle_z(cgmath::Deg(delta_angle))
+                            }
 
-                        if input.is_backward_pressed {
-                            to_spawn.push(GameState::make_laser(entity.position, entity.rotation));
+                            if control.weapon_cooldown < *delta_time {
+                                if input.is_backward_pressed {
+                                    to_spawn.push(GameState::make_laser(
+                                        entity.position,
+                                        entity.rotation,
+                                    ));
+                                    control.weapon_cooldown = Duration::from_millis(300);
+                                } else {
+                                    control.weapon_cooldown = Duration::ZERO
+                                }
+                            } else {
+                                control.weapon_cooldown -= *delta_time;
+                            }
                         }
                     }
                     _ => (),
@@ -377,11 +389,15 @@ impl Shape {
 #[derive(Clone, Copy)]
 pub struct Control {
     enabled: bool,
+    weapon_cooldown: Duration,
 }
 
 impl Control {
     fn enabled() -> Self {
-        Self { enabled: true }
+        Self {
+            enabled: true,
+            weapon_cooldown: Duration::ZERO,
+        }
     }
 }
 
