@@ -43,7 +43,7 @@ impl World {
         let size = (world_width, world_height);
 
         let camera = Camera {
-            eye: (0.0, -1.0, WORLD_SIZE_MIN * 10.).into(),
+            eye: (0.0, -1.0, WORLD_SIZE_MIN).into(),
             // have it look at the origin
             target: (0.0, 0.0, 0.0).into(),
             // which way is "up"
@@ -52,8 +52,8 @@ impl World {
             right: world_width / 2.,
             top: world_height / 2.,
             bottom: -world_height / 2.,
-            near: WORLD_SIZE_MIN * 10. - 2.,
-            far: WORLD_SIZE_MIN * 10. + 2.,
+            near: WORLD_SIZE_MIN - 5.,
+            far: WORLD_SIZE_MIN + 5.,
         };
 
         (size, camera)

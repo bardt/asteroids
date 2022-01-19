@@ -15,7 +15,7 @@ impl Camera {
         // 1. move to position and set rotation of the camera
         let view = cgmath::Matrix4::look_at_rh(self.eye, self.target, self.up);
         // 2. wrap the scene to give effect of depth
-        let proj = cgmath::frustum(
+        let proj = cgmath::ortho(
             self.left,
             self.right,
             self.bottom,
