@@ -102,6 +102,9 @@ impl GameState {
                 linear_speed: rotation.rotate_vector(cgmath::Vector3::unit_y()) * linear_speed,
                 angular_speed: cgmath::Quaternion::zero(),
             }),
+            lifetime: Some(Lifetime {
+                dies_after: Duration::from_secs(1),
+            }),
             collision: Some(Collision {
                 shape: Shape::Sphere {
                     origin: position.to_zero(),
@@ -255,6 +258,31 @@ impl GameState {
 
         self
     }
+
+    pub fn lifetime_system(&mut self, delta_time: &Duration) -> &mut Self {
+        let mut to_kill = vec![];
+        for (id, option_entity) in self.entities.iter_mut().enumerate() {
+            match option_entity {
+                Some(entity) => match &mut entity.lifetime {
+                    Some(lifetime) => {
+                        if lifetime.dies_after >= *delta_time {
+                            lifetime.dies_after -= *delta_time;
+                        } else {
+                            to_kill.push(id);
+                        }
+                    }
+                    None => (),
+                },
+                None => (),
+            }
+        }
+
+        for id in to_kill {
+            self.kill(id);
+        }
+
+        self
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -266,6 +294,7 @@ pub struct Entity {
     pub collision: Option<Collision>,
     pub control: Option<Control>,
     pub health: Option<Health>,
+    pub lifetime: Option<Lifetime>,
 }
 
 impl Default for Entity {
@@ -274,10 +303,11 @@ impl Default for Entity {
             name: "",
             position: WorldPosition::default(),
             rotation: cgmath::Quaternion::zero(),
-            physics: Option::default(),
-            collision: Option::default(),
-            control: Option::default(),
-            health: Option::default(),
+            physics: None,
+            collision: None,
+            control: None,
+            health: None,
+            lifetime: None,
         }
     }
 }
@@ -404,4 +434,9 @@ impl Health {
     fn deal_damage(&mut self, damage: usize) {
         self.level = (self.level - damage).max(0);
     }
+}
+
+#[derive(Copy, Clone)]
+pub struct Lifetime {
+    dies_after: Duration,
 }

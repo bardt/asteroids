@@ -362,6 +362,7 @@ impl State {
 
             self.gamestate
                 .control_system(&self.input, &delta_time)
+                .lifetime_system(&delta_time)
                 .physics_system(&delta_time)
                 .collision_system();
 
