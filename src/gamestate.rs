@@ -10,10 +10,12 @@ use rayon::iter::IntoParallelRefMutIterator;
 use rayon::iter::ParallelIterator;
 
 use std::time::Duration;
+use std::time::Instant;
 
 pub struct GameState {
     entities: Vec<Option<Entity>>,
     pub world: World,
+    last_update: Instant,
 }
 
 #[allow(dead_code)]
@@ -24,6 +26,7 @@ impl GameState {
         let mut game = Self {
             entities: vec![],
             world: World::init(aspect),
+            last_update: Instant::now(),
         };
 
         game.push(game.make_spaceship((0.0, 0.0, 0.0), 0.));
@@ -166,9 +169,14 @@ impl GameState {
             .collect::<Vec<_>>()
     }
 
-    pub fn control_system(&mut self, input: &Input, delta_time: &Duration) -> &mut Self {
+    fn delta_time(&self) -> Duration {
+        self.last_update.elapsed()
+    }
+
+    pub fn control_system(&mut self, input: &Input) -> &mut Self {
         let mut to_spawn = vec![];
 
+        let delta_time = self.delta_time();
         for option_entity in &mut self.entities {
             match option_entity {
                 Some(entity) => match (&mut entity.control, &mut entity.physics) {
@@ -176,40 +184,45 @@ impl GameState {
                         if control.enabled {
                             let rotation_speed = 180.;
                             let linear_acceleration = 50.;
+                            {
+                                let dtime = (delta_time.as_millis() as f32) / 1000.0;
+                                let delta_angle = dtime * rotation_speed;
+                                let delta_linear_speed = dtime * linear_acceleration;
 
-                            let dtime = (delta_time.as_millis() as f32) / 1000.0;
-                            let delta_angle = dtime * rotation_speed;
-                            let delta_linear_speed = dtime * linear_acceleration;
+                                let direction =
+                                    entity.rotation.rotate_vector(cgmath::Vector3::unit_y());
 
-                            let direction =
-                                entity.rotation.rotate_vector(cgmath::Vector3::unit_y());
-
-                            if input.is_forward_pressed {
-                                physics.linear_speed += direction * delta_linear_speed;
-                            }
-
-                            if input.is_right_pressed {
-                                entity.rotation = entity.rotation
-                                    * cgmath::Quaternion::from_angle_z(cgmath::Deg(-delta_angle))
-                            }
-
-                            if input.is_left_pressed {
-                                entity.rotation = entity.rotation
-                                    * cgmath::Quaternion::from_angle_z(cgmath::Deg(delta_angle))
-                            }
-
-                            if control.weapon_cooldown < *delta_time {
-                                if input.is_backward_pressed {
-                                    to_spawn.push(GameState::make_laser(
-                                        entity.position,
-                                        entity.rotation,
-                                    ));
-                                    control.weapon_cooldown = Duration::from_millis(300);
-                                } else {
-                                    control.weapon_cooldown = Duration::ZERO
+                                if input.is_forward_pressed {
+                                    physics.linear_speed += direction * delta_linear_speed;
                                 }
-                            } else {
-                                control.weapon_cooldown -= *delta_time;
+
+                                if input.is_right_pressed {
+                                    entity.rotation = entity.rotation
+                                        * cgmath::Quaternion::from_angle_z(cgmath::Deg(
+                                            -delta_angle,
+                                        ))
+                                }
+
+                                if input.is_left_pressed {
+                                    entity.rotation = entity.rotation
+                                        * cgmath::Quaternion::from_angle_z(cgmath::Deg(delta_angle))
+                                }
+                            }
+
+                            {
+                                if control.weapon_cooldown < delta_time {
+                                    if input.is_backward_pressed {
+                                        to_spawn.push(GameState::make_laser(
+                                            entity.position,
+                                            entity.rotation,
+                                        ));
+                                        control.weapon_cooldown = Duration::from_millis(300);
+                                    } else {
+                                        control.weapon_cooldown = Duration::ZERO
+                                    }
+                                } else {
+                                    control.weapon_cooldown -= delta_time;
+                                }
                             }
                         }
                     }
@@ -224,11 +237,12 @@ impl GameState {
         self
     }
 
-    pub fn physics_system(&mut self, delta_time: &Duration) -> &mut Self {
+    pub fn physics_system(&mut self) -> &mut Self {
+        let dtime = self.delta_time();
         self.entities
             .par_iter_mut()
             .for_each(|option_entity| match option_entity {
-                Some(entity) => entity.update_physics(delta_time),
+                Some(entity) => entity.update_physics(&dtime),
                 None => (),
             });
 
@@ -271,14 +285,15 @@ impl GameState {
         self
     }
 
-    pub fn lifetime_system(&mut self, delta_time: &Duration) -> &mut Self {
+    pub fn lifetime_system(&mut self) -> &mut Self {
         let mut to_kill = vec![];
+        let dtime = self.delta_time();
         for (id, option_entity) in self.entities.iter_mut().enumerate() {
             match option_entity {
                 Some(entity) => match &mut entity.lifetime {
                     Some(lifetime) => {
-                        if lifetime.dies_after >= *delta_time {
-                            lifetime.dies_after -= *delta_time;
+                        if lifetime.dies_after >= dtime {
+                            lifetime.dies_after -= dtime;
                         } else {
                             to_kill.push(id);
                         }
@@ -294,6 +309,10 @@ impl GameState {
         }
 
         self
+    }
+
+    pub fn submit(&mut self) {
+        self.last_update = Instant::now();
     }
 }
 

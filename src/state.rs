@@ -358,13 +358,14 @@ impl State {
         // Time elapsed since last update
         let delta_time = self.last_update.elapsed();
         if delta_time.as_millis() >= MINIMUM_FRAME_DURATION_IN_MILLIS {
-            self.last_update = Instant::now();
-
             self.gamestate
-                .control_system(&self.input, &delta_time)
-                .lifetime_system(&delta_time)
-                .physics_system(&delta_time)
-                .collision_system();
+                .control_system(&self.input)
+                .lifetime_system()
+                .physics_system()
+                .collision_system()
+                .submit();
+
+            self.last_update = Instant::now();
 
             let instance_data = self
                 .gamestate
