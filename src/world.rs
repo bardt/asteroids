@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::{camera::Camera, instance::Instance};
 use cgmath::prelude::*;
 use cgmath::Vector3;
@@ -92,6 +94,12 @@ impl Default for WorldPosition {
             position: (0.0, 0.0, 0.0).into(),
             world_size: (100., 100.),
         }
+    }
+}
+
+impl Display for WorldPosition {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&format!("({}, {})", self.position.x, self.position.y))
     }
 }
 

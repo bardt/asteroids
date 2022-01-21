@@ -1,5 +1,9 @@
+static MODE: Mode = Mode::Dev;
+
 mod camera;
 mod collision;
+mod components;
+mod entity;
 mod gamestate;
 mod input;
 mod instance;
@@ -14,6 +18,12 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
+
+#[allow(dead_code)]
+enum Mode {
+    Debug,
+    Dev,
+}
 
 fn main() {
     env_logger::init();

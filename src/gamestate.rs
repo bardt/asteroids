@@ -1,10 +1,21 @@
 use crate::collision;
+use crate::components::Collision;
+use crate::components::Control;
+use crate::components::Health;
+use crate::components::Lifetime;
+use crate::components::Physics;
+
+use crate::components::Shape;
+use crate::entity::Entity;
+
 use crate::world::World;
 use crate::world::WorldPosition;
+use crate::Mode;
+use crate::MODE;
 use crate::{input::Input, instance::Instance};
 use cgmath::prelude::*;
 use cgmath::Deg;
-use rand::Rng;
+
 use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::IntoParallelRefMutIterator;
 use rayon::iter::ParallelIterator;
@@ -61,7 +72,10 @@ impl GameState {
             position: self.world.new_position(position.into()),
             rotation: cgmath::Quaternion::from_angle_z(Deg(rotation_angle)),
 
-            physics: Some(Physics::default()),
+            physics: Some(Physics {
+                max_linear_speed: 60.,
+                ..Default::default()
+            }),
             collision: Some(Collision {
                 shape: Shape::Sphere {
                     origin: self.world.new_position((0.0, 0.0, 0.0).into()),
@@ -93,15 +107,21 @@ impl GameState {
         }
     }
 
-    pub fn make_laser(position: WorldPosition, rotation: cgmath::Quaternion<f32>) -> Entity {
-        let linear_speed = 200.;
+    pub fn make_laser(
+        position: WorldPosition,
+        rotation: cgmath::Quaternion<f32>,
+        relative_speed: cgmath::Vector3<f32>,
+    ) -> Entity {
+        let init_speed = 80.;
 
         Entity {
             name: "Laser",
             position,
             rotation,
             physics: Some(Physics {
-                linear_speed: rotation.rotate_vector(cgmath::Vector3::unit_y()) * linear_speed,
+                linear_speed: rotation.rotate_vector(cgmath::Vector3::unit_y()) * init_speed
+                    + relative_speed,
+                max_linear_speed: 1000.,
                 angular_speed: cgmath::Quaternion::zero(),
             }),
             lifetime: Some(Lifetime {
@@ -137,7 +157,17 @@ impl GameState {
     }
 
     pub fn push(&mut self, entity: Entity) {
-        self.entities.push(Some(entity))
+        self.entities.push(Some(entity));
+
+        match MODE {
+            Mode::Debug => {
+                println!("===");
+                println!("{:?}", &entity);
+                println!("Entites: {:?}", self.entities);
+                println!("===");
+            }
+            _ => (),
+        }
     }
 
     pub fn kill(&mut self, index: EntityIndex) {
@@ -215,6 +245,7 @@ impl GameState {
                                         to_spawn.push(GameState::make_laser(
                                             entity.position,
                                             entity.rotation,
+                                            entity.physics.unwrap().linear_speed,
                                         ));
                                         control.weapon_cooldown = Duration::from_millis(300);
                                     } else {
@@ -314,164 +345,4 @@ impl GameState {
     pub fn submit(&mut self) {
         self.last_update = Instant::now();
     }
-}
-
-#[derive(Clone, Copy)]
-pub struct Entity {
-    pub name: &'static str,
-    pub position: WorldPosition,
-    pub rotation: cgmath::Quaternion<f32>,
-    pub physics: Option<Physics>,
-    pub collision: Option<Collision>,
-    pub control: Option<Control>,
-    pub health: Option<Health>,
-    pub lifetime: Option<Lifetime>,
-}
-
-impl Default for Entity {
-    fn default() -> Self {
-        Self {
-            name: "",
-            position: WorldPosition::default(),
-            rotation: cgmath::Quaternion::zero(),
-            physics: None,
-            collision: None,
-            control: None,
-            health: None,
-            lifetime: None,
-        }
-    }
-}
-
-impl Entity {
-    pub fn update_physics(&mut self, dtime: &Duration) {
-        match &mut self.physics {
-            Some(physics) => {
-                // Limit maximum speed
-                let max_linear_speed = 60_f32;
-                if physics.linear_speed.magnitude2() > 0. {
-                    let new_magnitude = max_linear_speed.min(physics.linear_speed.magnitude());
-                    physics.linear_speed = physics.linear_speed.normalize_to(new_magnitude);
-                }
-
-                // Move
-                self.position = self
-                    .position
-                    .translate(physics.linear_speed * (dtime.as_millis() as f32) / 1000.0);
-
-                // Rotate
-                self.rotation = cgmath::Quaternion::nlerp(
-                    self.rotation,
-                    self.rotation * physics.angular_speed,
-                    (dtime.as_millis() as f32) / 1000.0,
-                );
-            }
-            None => (),
-        }
-    }
-}
-
-#[derive(Clone, Copy)]
-pub struct Collision {
-    pub shape: Shape,
-    pub on_collision: fn(&mut GameState, this_id: usize, other_ids: &[usize]),
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum Shape {
-    Sphere { origin: WorldPosition, radius: f32 },
-}
-
-impl Shape {
-    pub(crate) fn overlaps(&self, another_shape: &Shape) -> bool {
-        match (self, another_shape) {
-            (
-                Shape::Sphere { origin, radius },
-                Shape::Sphere {
-                    origin: other_origin,
-                    radius: other_radius,
-                },
-            ) => WorldPosition::distance(origin, other_origin) < (radius + other_radius),
-        }
-    }
-
-    pub(crate) fn translate(&self, position: WorldPosition) -> Shape {
-        match *self {
-            Shape::Sphere { origin, radius } => Shape::Sphere {
-                origin: origin.translate(position.to_vector3()),
-                radius,
-            },
-        }
-    }
-}
-
-#[derive(Clone, Copy)]
-pub struct Control {
-    enabled: bool,
-    weapon_cooldown: Duration,
-}
-
-impl Control {
-    fn enabled() -> Self {
-        Self {
-            enabled: true,
-            weapon_cooldown: Duration::ZERO,
-        }
-    }
-}
-
-#[derive(Clone, Copy)]
-pub struct Physics {
-    linear_speed: cgmath::Vector3<f32>,
-    angular_speed: cgmath::Quaternion<f32>,
-}
-
-impl Physics {
-    fn random(max_linear_speed: f32, max_angular_speed: f32) -> Self {
-        let mut rng = rand::thread_rng();
-
-        let linear_speed = cgmath::Vector3 {
-            x: rng.gen_range(-max_linear_speed..max_linear_speed),
-            y: rng.gen_range(-max_linear_speed..max_linear_speed),
-            z: 0.0,
-        };
-
-        let axis = cgmath::Vector3 {
-            x: rng.gen_range(0.0..1.0),
-            y: rng.gen_range(0.0..1.0),
-            z: rng.gen_range(0.0..1.0),
-        };
-        let angle = Deg(rng.gen_range(0.0..max_angular_speed));
-        let angular_speed = cgmath::Quaternion::from_axis_angle(axis, angle);
-
-        Self {
-            linear_speed,
-            angular_speed,
-        }
-    }
-}
-
-impl Default for Physics {
-    fn default() -> Self {
-        Self {
-            linear_speed: (0.0, 0.0, 0.0).into(),
-            angular_speed: cgmath::Quaternion::zero(),
-        }
-    }
-}
-
-#[derive(Clone, Copy)]
-pub struct Health {
-    level: usize,
-}
-
-impl Health {
-    fn deal_damage(&mut self, damage: usize) {
-        self.level = (self.level - damage).max(0);
-    }
-}
-
-#[derive(Copy, Clone)]
-pub struct Lifetime {
-    dies_after: Duration,
 }
