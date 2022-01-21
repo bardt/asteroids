@@ -1,4 +1,4 @@
-static MODE: Mode = Mode::Dev;
+static MODE: Mode = Mode::Debug;
 
 mod camera;
 mod collision;
@@ -23,6 +23,15 @@ use winit::{
 enum Mode {
     Debug,
     Dev,
+}
+
+fn debug(str: &str) {
+    match MODE {
+        Mode::Debug => {
+            println!("[DEBUG] {}", str);
+        }
+        _ => (),
+    }
 }
 
 fn main() {

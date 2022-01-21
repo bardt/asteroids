@@ -1,5 +1,5 @@
 use crate::{
-    camera,
+    camera, debug,
     gamestate::GameState,
     input::Input,
     instance::{Instance, InstanceRaw},
@@ -34,6 +34,7 @@ pub struct State {
     camera_buffer: wgpu::Buffer,
     camera_bind_group: wgpu::BindGroup,
     instance_buffer: wgpu::Buffer,
+    instance_buffer_size: usize,
     depth_texture: texture::Texture,
     obj_model: Model,
     light_uniform: LightUniform,
@@ -188,6 +189,7 @@ impl State {
             contents: bytemuck::cast_slice(&instance_data),
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         });
+        let instance_buffer_size = (bytemuck::cast_slice(&instance_data) as &[u8]).len();
 
         // PIPELINES
 
@@ -274,6 +276,7 @@ impl State {
             last_update: now,
             last_render: now,
             instance_buffer,
+            instance_buffer_size,
             input,
         }
     }
@@ -381,18 +384,29 @@ impl State {
             .collect::<Vec<_>>()
             .concat();
 
-        // @TODO override buffer only when the number of instances changes
-        self.instance_buffer = self.device.create_buffer_init(&BufferInitDescriptor {
-            label: Some("Instance Buffer"),
-            contents: bytemuck::cast_slice(&instance_data),
-            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-        });
+        let buffer_contents = bytemuck::cast_slice(&instance_data) as &[u8];
 
-        self.queue.write_buffer(
-            &self.instance_buffer,
-            0,
-            bytemuck::cast_slice(&instance_data),
-        );
+        if buffer_contents.len() > self.instance_buffer_size {
+            self.instance_buffer_size = buffer_contents.len();
+            debug(&format!(
+                "Reallocating buffer for size {:?}",
+                self.instance_buffer_size
+            ));
+            self.instance_buffer = self.device.create_buffer_init(&BufferInitDescriptor {
+                label: Some("Instance Buffer"),
+                contents: buffer_contents,
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            });
+
+            self.queue.write_buffer(
+                &self.instance_buffer,
+                0,
+                bytemuck::cast_slice(&instance_data),
+            );
+        } else {
+            self.queue
+                .write_buffer(&self.instance_buffer, 0, buffer_contents);
+        }
 
         self.camera_uniform
             .update_view_proj(&self.gamestate.world.camera);

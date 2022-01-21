@@ -99,7 +99,7 @@ impl Default for WorldPosition {
 
 impl Display for WorldPosition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&format!("({}, {})", self.position.x, self.position.y))
+        f.write_str(&format!("({:.2}, {:.2})", self.position.x, self.position.y))
     }
 }
 

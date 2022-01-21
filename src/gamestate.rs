@@ -6,12 +6,12 @@ use crate::components::Lifetime;
 use crate::components::Physics;
 
 use crate::components::Shape;
+use crate::debug;
 use crate::entity::Entity;
 
 use crate::world::World;
 use crate::world::WorldPosition;
-use crate::Mode;
-use crate::MODE;
+
 use crate::{input::Input, instance::Instance};
 use cgmath::prelude::*;
 use cgmath::Deg;
@@ -157,21 +157,28 @@ impl GameState {
     }
 
     pub fn push(&mut self, entity: Entity) {
-        self.entities.push(Some(entity));
-
-        match MODE {
-            Mode::Debug => {
-                println!("===");
-                println!("{:?}", &entity);
-                println!("Entites: {:?}", self.entities);
-                println!("===");
+        let first_vacant_id = self.entities.iter().enumerate().find_map(|(id, entity)| {
+            if Option::is_none(entity) {
+                Some(id)
+            } else {
+                None
             }
-            _ => (),
+        });
+
+        match first_vacant_id {
+            Some(id) => self.entities[id] = Some(entity),
+            None => self.entities.push(Some(entity)),
         }
+
+        debug(&format!("Pushing {:?}", &entity));
+        debug(&format!("Entites: {:?}", self.entities));
     }
 
     pub fn kill(&mut self, index: EntityIndex) {
-        self.entities[index] = None
+        self.entities[index] = None;
+
+        debug(&format!("Killing {}", index));
+        debug(&format!("Entites: {:?}", self.entities));
     }
 
     pub fn get_entity(&self, id: EntityIndex) -> Option<&Entity> {
@@ -247,7 +254,7 @@ impl GameState {
                                             entity.rotation,
                                             entity.physics.unwrap().linear_speed,
                                         ));
-                                        control.weapon_cooldown = Duration::from_millis(300);
+                                        control.weapon_cooldown = Duration::from_millis(200);
                                     } else {
                                         control.weapon_cooldown = Duration::ZERO
                                     }
@@ -302,12 +309,13 @@ impl GameState {
                     .filter_map(|id| if id == this_id { None } else { Some(*id) })
                     .collect::<Vec<_>>();
 
-                let this = self.get_entity(*this_id).unwrap();
-
-                match this.collision {
-                    Some(collision) => {
-                        (collision.on_collision)(self, *this_id, other_ids.as_slice());
-                    }
+                match self.get_entity(*this_id) {
+                    Some(this) => match this.collision {
+                        Some(collision) => {
+                            (collision.on_collision)(self, *this_id, other_ids.as_slice());
+                        }
+                        None => (),
+                    },
                     None => (),
                 }
             }
