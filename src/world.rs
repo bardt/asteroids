@@ -108,6 +108,11 @@ impl WorldPosition {
         self.position
     }
 
+    pub fn to_tuple(&self) -> (f32, f32, f32) {
+        let Vector3 { x, y, z } = self.position;
+        (x, y, z)
+    }
+
     pub fn distance(&self, other: &Self) -> f32 {
         let world_size = self.world_size;
 

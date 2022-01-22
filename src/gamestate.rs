@@ -76,7 +76,27 @@ impl GameState {
                     origin: self.world.new_position((0.0, 0.0, 0.0).into()),
                     radius: 3.0,
                 },
-                on_collision: |gamestate, this_id, _other_ids| gamestate.kill(this_id),
+                on_collision: |gamestate, this_id, _other_ids| {
+                    let this_option = gamestate.get_entity(this_id);
+                    let mut to_spawn = Vec::with_capacity(2);
+                    match this_option {
+                        Some(this) => {
+                            to_spawn.push(gamestate.make_asteroid_s(
+                                this.position.translate((1.5, 0.0, 0.0).into()).to_tuple(),
+                            ));
+                            to_spawn.push(gamestate.make_asteroid_s(
+                                this.position.translate((-1.5, 0.0, 0.0).into()).to_tuple(),
+                            ));
+                        }
+                        None => (),
+                    }
+
+                    for e in to_spawn {
+                        gamestate.push(e);
+                    }
+
+                    gamestate.kill(this_id)
+                },
             }),
             ..Default::default()
         }
@@ -93,7 +113,27 @@ impl GameState {
                     origin: self.world.new_position((0.0, 0.0, 0.0).into()),
                     radius: 5.0,
                 },
-                on_collision: |gamestate, this_id, _other_ids| gamestate.kill(this_id),
+                on_collision: |gamestate, this_id, _other_ids| {
+                    let this_option = gamestate.get_entity(this_id);
+                    let mut to_spawn = Vec::with_capacity(2);
+                    match this_option {
+                        Some(this) => {
+                            to_spawn.push(gamestate.make_asteroid_m(
+                                this.position.translate((3.5, 0.0, 0.0).into()).to_tuple(),
+                            ));
+                            to_spawn.push(gamestate.make_asteroid_m(
+                                this.position.translate((-3.5, 0.0, 0.0).into()).to_tuple(),
+                            ));
+                        }
+                        None => (),
+                    }
+
+                    for e in to_spawn {
+                        gamestate.push(e);
+                    }
+
+                    gamestate.kill(this_id)
+                },
             }),
             ..Default::default()
         }
@@ -172,9 +212,7 @@ impl GameState {
                     for id in other_ids {
                         match gamestate.get_entity(*id) {
                             Some(other) => {
-                                // @TODO make a component for laser target
-                                if other.name == "Asteroid" {
-                                    gamestate.kill(*id);
+                                if other.name.starts_with("Asteroid") {
                                     should_kill_self = true;
                                 }
                             }
