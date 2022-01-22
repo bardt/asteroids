@@ -363,6 +363,7 @@ impl State {
         self.gamestate
             .control_system(&self.input)
             .lifetime_system()
+            .asteroids_spawn_system()
             .physics_system()
             .collision_system()
             .submit();

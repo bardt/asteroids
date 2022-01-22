@@ -423,6 +423,22 @@ impl GameState {
         self
     }
 
+    pub fn asteroids_spawn_system(&mut self) -> &mut Self {
+        let number_of_asteroids = self
+            .entities
+            .par_iter()
+            .filter_map(|entity_option| {
+                entity_option.map(|entity| entity.name.starts_with("Asteroid"))
+            })
+            .count();
+        if number_of_asteroids < 3 {
+            // @TODO: find an empty location to spawn into
+            self.push(self.make_asteroid_l((0.0, 0.0, 0.0)));
+        }
+
+        self
+    }
+
     pub fn submit(&mut self) {
         self.last_update = Instant::now();
     }

@@ -3,7 +3,7 @@ use crate::components::Shape;
 pub(crate) fn find_collisions(shapes: Vec<Option<Shape>>) -> Vec<Vec<usize>> {
     let mut total_collisions = vec![];
 
-    // @TODO use a faster collision detection algorithm
+    // @TODO: use a faster collision detection algorithm
     for (i, shape) in shapes.iter().enumerate().filter_map(to_option) {
         let mut this_shape_collisions = vec![i];
 
