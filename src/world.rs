@@ -54,8 +54,8 @@ impl World {
             right: world_width / 2.,
             top: world_height / 2.,
             bottom: -world_height / 2.,
-            near: WORLD_SIZE_MIN - 5.,
-            far: WORLD_SIZE_MIN + 5.,
+            near: WORLD_SIZE_MIN - 25.,
+            far: WORLD_SIZE_MIN + 25.,
         };
 
         (size, camera)

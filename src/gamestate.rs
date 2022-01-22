@@ -41,23 +41,57 @@ impl GameState {
         };
 
         game.push(game.make_spaceship((0.0, 0.0, 0.0), 0.));
-        game.push(game.make_asteroid((5.0, 5.0, 0.0)));
-        game.push(game.make_asteroid((-5.0, 5.0, 0.0)));
-        game.push(game.make_asteroid((5.0, -5.0, 0.0)));
+        game.push(game.make_asteroid_s((25.0, 25.0, 0.0)));
+        game.push(game.make_asteroid_m((-25.0, 25.0, 0.0)));
+        game.push(game.make_asteroid_l((25.0, -25.0, 0.0)));
 
         game
     }
 
-    pub fn make_asteroid(&self, position: (f32, f32, f32)) -> Entity {
+    pub fn make_asteroid_s(&self, position: (f32, f32, f32)) -> Entity {
         Entity {
-            name: "Asteroid",
+            name: "Asteroid_S",
+            position: self.world.new_position(position.into()),
+            rotation: cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), Deg(0.0)),
+            physics: Some(Physics::random(10., 100.)),
+            collision: Some(Collision {
+                shape: Shape::Sphere {
+                    origin: self.world.new_position((0.0, 0.0, 0.0).into()),
+                    radius: 1.0,
+                },
+                on_collision: |gamestate, this_id, _other_ids| gamestate.kill(this_id),
+            }),
+            ..Default::default()
+        }
+    }
+
+    pub fn make_asteroid_m(&self, position: (f32, f32, f32)) -> Entity {
+        Entity {
+            name: "Asteroid_M",
             position: self.world.new_position(position.into()),
             rotation: cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), Deg(0.0)),
             physics: Some(Physics::random(1., 100.)),
             collision: Some(Collision {
                 shape: Shape::Sphere {
                     origin: self.world.new_position((0.0, 0.0, 0.0).into()),
-                    radius: 1.0,
+                    radius: 3.0,
+                },
+                on_collision: |gamestate, this_id, _other_ids| gamestate.kill(this_id),
+            }),
+            ..Default::default()
+        }
+    }
+
+    pub fn make_asteroid_l(&self, position: (f32, f32, f32)) -> Entity {
+        Entity {
+            name: "Asteroid_L",
+            position: self.world.new_position(position.into()),
+            rotation: cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), Deg(0.0)),
+            physics: Some(Physics::random(1., 100.)),
+            collision: Some(Collision {
+                shape: Shape::Sphere {
+                    origin: self.world.new_position((0.0, 0.0, 0.0).into()),
+                    radius: 5.0,
                 },
                 on_collision: |gamestate, this_id, _other_ids| gamestate.kill(this_id),
             }),
@@ -138,6 +172,7 @@ impl GameState {
                     for id in other_ids {
                         match gamestate.get_entity(*id) {
                             Some(other) => {
+                                // @TODO make a component for laser target
                                 if other.name == "Asteroid" {
                                     gamestate.kill(*id);
                                     should_kill_self = true;

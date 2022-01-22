@@ -485,7 +485,7 @@ impl State {
             render_pass.set_pipeline(&self.light_render_pipeline);
 
             render_pass.draw_named_mesh(
-                "Asteroid",
+                "Asteroid_S",
                 &self.obj_model,
                 &self.camera_bind_group,
                 &self.light_bind_group,
