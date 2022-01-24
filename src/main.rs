@@ -1,4 +1,4 @@
-static MODE: Mode = Mode::Debug;
+static MODE: Mode = Mode::Dev;
 
 mod camera;
 mod collision;

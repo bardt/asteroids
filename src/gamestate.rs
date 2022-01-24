@@ -159,7 +159,7 @@ impl GameState {
                     let asteroids_number = other_ids
                         .iter()
                         .flat_map(|id| gamestate.get_entity(*id))
-                        .filter(|entity| entity.name == "Asteroid")
+                        .filter(|entity| entity.name.starts_with("Asteroid"))
                         .count();
 
                     let this = gamestate.get_entity_mut(this_id).unwrap();

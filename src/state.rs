@@ -42,7 +42,6 @@ pub struct State {
     light_bind_group: wgpu::BindGroup,
     light_render_pipeline: wgpu::RenderPipeline,
     last_update: Instant,
-    last_render: Instant,
     gamestate: GameState,
     input: Input,
 }
@@ -252,8 +251,7 @@ impl State {
         )
         .unwrap();
 
-        let now = std::time::Instant::now();
-
+        let last_update = std::time::Instant::now();
         let input = Input::new();
 
         Self {
@@ -273,8 +271,7 @@ impl State {
             light_buffer,
             light_bind_group,
             light_render_pipeline,
-            last_update: now,
-            last_render: now,
+            last_update,
             instance_buffer,
             instance_buffer_size,
             input,
@@ -357,9 +354,6 @@ impl State {
     }
 
     pub fn update(&mut self) {
-        // Time elapsed since last update
-        // let delta_time = self.last_update.elapsed();
-        // if delta_time.as_millis() >= MINIMUM_FRAME_DURATION_IN_MILLIS {
         self.gamestate
             .control_system(&self.input)
             .lifetime_system()
@@ -427,13 +421,9 @@ impl State {
             0,
             bytemuck::cast_slice(&[self.light_uniform]),
         );
-        // }
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
-        // let delta_time = self.last_render.elapsed();
-        // if delta_time.as_millis() >= MINIMUM_FRAME_DURATION_IN_MILLIS {
-        self.last_render = Instant::now();
         // New SurfaceTexture we will render to
         let output = self.surface.get_current_texture()?;
 
