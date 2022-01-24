@@ -1,5 +1,6 @@
 use crate::{
-    camera, debug,
+    camera::{self, CameraRenderer},
+    debug,
     gamestate::GameState,
     input::Input,
     instance::{Instance, InstanceRaw},
@@ -30,9 +31,7 @@ pub struct State {
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     render_pipeline: wgpu::RenderPipeline,
-    camera_uniform: camera::CameraUniform,
-    camera_buffer: wgpu::Buffer,
-    camera_bind_group: wgpu::BindGroup,
+    camera_renderer: camera::CameraRenderer,
     instance_buffer: wgpu::Buffer,
     instance_buffer_size: usize,
     depth_texture: texture::Texture,
@@ -102,25 +101,10 @@ impl State {
 
         // CAMERA
 
-        let mut camera_uniform = camera::CameraUniform::new();
-        camera_uniform.update_view_proj(&gamestate.world.camera);
-
-        let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Camera Buffer"),
-            contents: bytemuck::cast_slice(&[camera_uniform]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
-        let camera_bind_group_layout = device.create_bind_group_layout(&camera::Camera::desc());
-
-        let camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &camera_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: camera_buffer.as_entire_binding(),
-            }],
-            label: Some("Camera Bind Group"),
-        });
+        let mut camera_renderer = CameraRenderer::init(&device);
+        camera_renderer
+            .uniform
+            .update_view_proj(&gamestate.world.camera);
 
         // LIGHT
 
@@ -197,7 +181,7 @@ impl State {
                 label: Some("Render Pipeline Layout"),
                 bind_group_layouts: &[
                     &texture_bind_group_layout,
-                    &camera_bind_group_layout,
+                    &camera_renderer.bind_group_layout,
                     &light_bind_group_layout,
                 ],
                 push_constant_ranges: &[],
@@ -223,7 +207,7 @@ impl State {
                 label: Some("Light Pipeline Layout"),
                 bind_group_layouts: &[
                     &texture_bind_group_layout, // We don't use it in shader, but specify for uniformity
-                    &camera_bind_group_layout,
+                    &camera_renderer.bind_group_layout,
                     &light_bind_group_layout,
                 ],
                 push_constant_ranges: &[],
@@ -261,9 +245,7 @@ impl State {
             config,
             size,
             gamestate,
-            camera_uniform,
-            camera_buffer,
-            camera_bind_group,
+            camera_renderer,
             obj_model,
             depth_texture,
             render_pipeline,
@@ -403,13 +385,8 @@ impl State {
                 .write_buffer(&self.instance_buffer, 0, buffer_contents);
         }
 
-        self.camera_uniform
-            .update_view_proj(&self.gamestate.world.camera);
-        self.queue.write_buffer(
-            &self.camera_buffer,
-            0,
-            bytemuck::cast_slice(&[self.camera_uniform]),
-        );
+        self.camera_renderer
+            .update_buffer(&self.queue, &self.gamestate.world.camera);
 
         let old_position: cgmath::Vector3<_> = self.light_uniform.position.into();
         self.light_uniform.position =
@@ -478,7 +455,7 @@ impl State {
             render_pass.draw_named_mesh(
                 "Asteroid_S",
                 &self.obj_model,
-                &self.camera_bind_group,
+                &self.camera_renderer.bind_group,
                 &self.light_bind_group,
             );
 
@@ -502,7 +479,7 @@ impl State {
                         entity_name,
                         &self.obj_model,
                         offset..(offset + size),
-                        &self.camera_bind_group,
+                        &self.camera_renderer.bind_group,
                         &self.light_bind_group,
                     );
 
@@ -516,7 +493,7 @@ impl State {
                 entity_name,
                 &self.obj_model,
                 offset..(offset + size),
-                &self.camera_bind_group,
+                &self.camera_renderer.bind_group,
                 &self.light_bind_group,
             );
         }

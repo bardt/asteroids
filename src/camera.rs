@@ -1,3 +1,5 @@
+use wgpu::util::DeviceExt;
+
 pub struct Camera {
     pub eye: cgmath::Point3<f32>,
     pub target: cgmath::Point3<f32>,
@@ -25,22 +27,6 @@ impl Camera {
         );
 
         return OPENGL_TO_WGPU_MATRIX * proj * view;
-    }
-
-    pub fn desc() -> wgpu::BindGroupLayoutDescriptor<'static> {
-        wgpu::BindGroupLayoutDescriptor {
-            label: Some("Camera Bind Group Layout"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            }],
-        }
     }
 }
 
@@ -76,5 +62,57 @@ impl CameraUniform {
         // We're using Vector4 because of the uniforms 16 byte spacing requirement
         self.view_position = camera.eye.to_homogeneous().into();
         self.view_proj = camera.build_view_projection_matrix().into();
+    }
+}
+
+pub struct CameraRenderer {
+    pub uniform: CameraUniform,
+    buffer: wgpu::Buffer,
+    pub bind_group: wgpu::BindGroup,
+    pub bind_group_layout: wgpu::BindGroupLayout,
+}
+
+impl CameraRenderer {
+    pub fn init(device: &wgpu::Device) -> Self {
+        let uniform = CameraUniform::new();
+        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Camera Buffer"),
+            contents: bytemuck::cast_slice(&[uniform]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("Camera Bind Group Layout"),
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            }],
+        });
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Camera Bind Group"),
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: buffer.as_entire_binding(),
+            }],
+            layout: &bind_group_layout,
+        });
+
+        Self {
+            // Data we want to put into buffer
+            uniform,
+            buffer,
+            bind_group,
+            bind_group_layout,
+        }
+    }
+
+    pub fn update_buffer(&mut self, queue: &wgpu::Queue, world_camera: &Camera) {
+        self.uniform.update_view_proj(world_camera);
+        queue.write_buffer(&self.buffer, 0, bytemuck::cast_slice(&[self.uniform]));
     }
 }
