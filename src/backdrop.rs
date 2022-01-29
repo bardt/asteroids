@@ -44,7 +44,7 @@ const BACKDROP_VERTS: [BackdropVertex; 6] = [
     },
 ];
 
-const BACKDROP_COLOR_UNIFORM: [f32; 4] = [0.0, 0.01, 0.05, 1.0];
+const BACKDROP_COLOR_UNIFORM: [f32; 4] = [0.0, 0.01, 0.02, 1.0];
 
 pub struct BackdropRenderer {
     vertex_buffer: wgpu::Buffer,

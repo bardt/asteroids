@@ -254,8 +254,6 @@ impl State {
             self.size = new_size;
             self.config.width = new_size.width;
             self.config.height = new_size.height;
-            // @TODO: leave black space around world map on resize
-            // self.world.resize(&self.config);
             self.surface.configure(&self.device, &self.config);
             self.depth_texture =
                 texture::Texture::create_depth_texture(&self.device, &self.config, "Depth Texture");
@@ -362,8 +360,8 @@ impl State {
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
                             r: 0.0,
-                            g: 0.01,
-                            b: 0.01,
+                            g: 0.0,
+                            b: 0.0,
                             a: 1.0,
                         }),
                         store: true,
@@ -379,15 +377,31 @@ impl State {
                 }),
             });
 
-            // @TODO: set viewport size according to the gamestate world size
-            render_pass.set_viewport(
-                100.,
-                100.,
-                (self.size.width - 200) as f32,
-                (self.size.height - 200) as f32,
-                0.,
-                1.,
-            );
+            {
+                // Persist aspect ratio
+                let (world_width, world_height) = self.gamestate.world.size;
+
+                let world_aspect = world_width / world_height;
+                let surface_aspect = self.config.width as f32 / self.config.height as f32;
+
+                let (delta_surface_width, delta_surface_height) = if surface_aspect >= world_aspect
+                {
+                    let expected_surface_width = world_aspect * self.config.height as f32;
+                    (self.config.width as f32 - expected_surface_width, 0.)
+                } else {
+                    let expected_surface_height = self.config.width as f32 / world_aspect;
+                    (0., self.config.height as f32 - expected_surface_height)
+                };
+
+                render_pass.set_viewport(
+                    delta_surface_width / 2.,
+                    delta_surface_height / 2.,
+                    self.size.width as f32 - delta_surface_width,
+                    self.size.height as f32 - delta_surface_height,
+                    0.,
+                    1.,
+                );
+            }
 
             render_pass.set_pipeline(&self.backdrop_render_pipeline);
             self.backdrop_renderer.draw(&mut render_pass);
