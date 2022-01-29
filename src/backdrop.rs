@@ -1,48 +1,76 @@
+use crate::model::Vertex;
+use crate::texture;
 use wgpu::util::DeviceExt;
 
-use crate::{
-    camera,
-    model::{self, Model, Vertex},
-    texture,
-};
-
 #[repr(C)]
-#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct LightUniform {
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct BackdropVertex {
     pub position: [f32; 3],
-    // Due to uniforms requiring 16 byte (4 float) spacing, we need to use a padding field here
-    _padding: u32,
-    color: [f32; 3],
-    radius: f32,
 }
 
-pub struct LightRenderer {
-    pub uniform: LightUniform,
-    buffer: wgpu::Buffer,
-    pub bind_group: wgpu::BindGroup,
-    pub bind_group_layout: wgpu::BindGroupLayout,
+impl Vertex for BackdropVertex {
+    fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
+        use std::mem;
+        wgpu::VertexBufferLayout {
+            array_stride: mem::size_of::<BackdropVertex>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &[wgpu::VertexAttribute {
+                offset: 0,
+                shader_location: 0,
+                format: wgpu::VertexFormat::Float32x3,
+            }],
+        }
+    }
 }
 
-impl LightRenderer {
+const BACKDROP_VERTS: [BackdropVertex; 6] = [
+    BackdropVertex {
+        position: [-1.0, 1.0, 1.0],
+    },
+    BackdropVertex {
+        position: [-1.0, -1.0, 1.0],
+    },
+    BackdropVertex {
+        position: [1.0, 1.0, 1.0],
+    },
+    BackdropVertex {
+        position: [1.0, -1.0, 1.0],
+    },
+    BackdropVertex {
+        position: [1.0, 1.0, 1.0],
+    },
+    BackdropVertex {
+        position: [-1.0, -1.0, 1.0],
+    },
+];
+
+const BACKDROP_COLOR_UNIFORM: [f32; 4] = [0.0, 0.01, 0.05, 1.0];
+
+pub struct BackdropRenderer {
+    vertex_buffer: wgpu::Buffer,
+    bind_group: wgpu::BindGroup,
+    bind_group_layout: wgpu::BindGroupLayout,
+}
+
+impl BackdropRenderer {
     pub fn init(device: &wgpu::Device) -> Self {
-        let uniform = LightUniform {
-            position: [2.0, 2.0, 2.0],
-            _padding: 0,
-            color: [1.0, 0.7, 0.3],
-            radius: 10.0,
-        };
-
         let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Light Buffer"),
-            contents: bytemuck::cast_slice(&[uniform]),
+            label: Some("Backdrop Buffer"),
+            contents: bytemuck::cast_slice(&BACKDROP_COLOR_UNIFORM),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Backdrop Vertex buffer"),
+            contents: bytemuck::cast_slice(&BACKDROP_VERTS),
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+        });
+
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Light Bind Group Layout"),
+            label: Some("Backdrop Bind Group Layout"),
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                visibility: wgpu::ShaderStages::FRAGMENT,
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Uniform,
                     has_dynamic_offset: false,
@@ -53,48 +81,44 @@ impl LightRenderer {
         });
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Light Bind Group"),
+            layout: &bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
                 resource: buffer.as_entire_binding(),
             }],
-            layout: &bind_group_layout,
+            label: None,
         });
 
         Self {
-            uniform,
-            buffer,
-            bind_group_layout,
+            vertex_buffer,
             bind_group,
+            bind_group_layout,
         }
-    }
-
-    pub fn update_buffer(&mut self, queue: &wgpu::Queue) {
-        queue.write_buffer(&self.buffer, 0, bytemuck::cast_slice(&[self.uniform]));
     }
 
     pub fn pipeline(
         &self,
         device: &wgpu::Device,
         surface_config: &wgpu::SurfaceConfiguration,
-        camera_renderer: &camera::CameraRenderer,
     ) -> wgpu::RenderPipeline {
+        let shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
+            label: Some("Backdrop Shader"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("backdrop.wgsl").into()),
+        });
+
         let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Light Render Pipeline Layout"),
-            bind_group_layouts: &[&camera_renderer.bind_group_layout, &self.bind_group_layout],
+            label: Some("Backdrop Render Pipeline Layout"),
+            bind_group_layouts: &[&self.bind_group_layout],
             push_constant_ranges: &[],
         });
-        let shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
-            label: Some("Light Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("light.wgsl").into()),
-        });
+
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Light Render Pipeline"),
+            label: Some("Backdrop Render Pipeline"),
             layout: Some(&layout),
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: "main",
-                buffers: &[model::ModelVertex::desc()],
+                buffers: &[BackdropVertex::desc()],
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
@@ -120,7 +144,7 @@ impl LightRenderer {
             depth_stencil: Some(wgpu::DepthStencilState {
                 format: texture::Texture::DEPTH_FORMAT,
                 depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less,
+                depth_compare: wgpu::CompareFunction::LessEqual,
                 stencil: wgpu::StencilState::default(),
                 bias: wgpu::DepthBiasState::default(),
             }),
@@ -133,22 +157,12 @@ impl LightRenderer {
         })
     }
 
-    // @TODO: specify instance data; now we rely on set_vertex_buffer in slot 1 outside of this function
-    pub fn draw_named_mesh<'a, 'b>(
-        &'b self,
-        name: &str,
-        model: &'b Model,
-        camera_bind_group: &'b wgpu::BindGroup,
-        render_pass: &mut wgpu::RenderPass<'a>,
-    ) where
+    pub fn draw<'a, 'b>(&'b self, render_pass: &mut wgpu::RenderPass<'a>)
+    where
         'b: 'a,
     {
-        if let Some(mesh) = model.meshes.iter().find(|mesh| mesh.name == name) {
-            render_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
-            render_pass.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-            render_pass.set_bind_group(0, camera_bind_group, &[]);
-            render_pass.set_bind_group(1, &self.bind_group, &[]);
-            render_pass.draw_indexed(0..mesh.num_elements, 0, 0..1);
-        }
+        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        render_pass.set_bind_group(0, &self.bind_group, &[]);
+        render_pass.draw(0..(BACKDROP_VERTS.len() as u32), 0..1);
     }
 }

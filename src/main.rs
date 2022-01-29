@@ -1,5 +1,6 @@
 static MODE: Mode = Mode::Dev;
 
+mod backdrop;
 mod camera;
 mod collision;
 mod components;

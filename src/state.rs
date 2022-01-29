@@ -1,3 +1,4 @@
+use crate::backdrop::BackdropRenderer;
 use crate::light::{self, LightRenderer};
 use crate::{
     camera::{self, CameraRenderer},
@@ -29,6 +30,8 @@ pub struct State {
     obj_model: Model,
     light_renderer: light::LightRenderer,
     light_render_pipeline: wgpu::RenderPipeline,
+    backdrop_renderer: BackdropRenderer,
+    backdrop_render_pipeline: wgpu::RenderPipeline,
     last_update: Instant,
     gamestate: GameState,
     input: Input,
@@ -95,6 +98,8 @@ impl State {
 
         let light_renderer = LightRenderer::init(&device);
 
+        let backdrop_renderer = BackdropRenderer::init(&device);
+
         // DEPTH
 
         let depth_texture =
@@ -152,6 +157,7 @@ impl State {
         };
 
         let light_render_pipeline = light_renderer.pipeline(&device, &config, &camera_renderer);
+        let backdrop_render_pipeline = backdrop_renderer.pipeline(&device, &config);
 
         let res_dir = std::path::Path::new(env!("OUT_DIR")).join("res");
         let obj_model = model::Model::load(
@@ -173,11 +179,14 @@ impl State {
             size,
             gamestate,
             camera_renderer,
+
             obj_model,
             depth_texture,
             render_pipeline,
             light_renderer,
             light_render_pipeline,
+            backdrop_renderer,
+            backdrop_render_pipeline,
             last_update,
             instance_buffer,
             instance_buffer_size,
@@ -369,6 +378,19 @@ impl State {
                     stencil_ops: None,
                 }),
             });
+
+            // @TODO: set viewport size according to the gamestate world size
+            render_pass.set_viewport(
+                100.,
+                100.,
+                (self.size.width - 200) as f32,
+                (self.size.height - 200) as f32,
+                0.,
+                1.,
+            );
+
+            render_pass.set_pipeline(&self.backdrop_render_pipeline);
+            self.backdrop_renderer.draw(&mut render_pass);
 
             // Render light
             render_pass.set_pipeline(&self.light_render_pipeline);
