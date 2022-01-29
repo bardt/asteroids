@@ -1,3 +1,4 @@
+use crate::light::{self, LightRenderer};
 use crate::{
     camera::{self, CameraRenderer},
     debug,
@@ -14,16 +15,6 @@ use std::time::Instant;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use winit::{event::WindowEvent, window::Window};
 
-#[repr(C)]
-#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-struct LightUniform {
-    position: [f32; 3],
-    // Due to uniforms requiring 16 byte (4 float) spacing, we need to use a padding field here
-    _padding: u32,
-    color: [f32; 3],
-    radius: f32,
-}
-
 pub struct State {
     pub size: winit::dpi::PhysicalSize<u32>,
     surface: wgpu::Surface,
@@ -36,9 +27,7 @@ pub struct State {
     instance_buffer_size: usize,
     depth_texture: texture::Texture,
     obj_model: Model,
-    light_uniform: LightUniform,
-    light_buffer: wgpu::Buffer,
-    light_bind_group: wgpu::BindGroup,
+    light_renderer: light::LightRenderer,
     light_render_pipeline: wgpu::RenderPipeline,
     last_update: Instant,
     gamestate: GameState,
@@ -99,52 +88,12 @@ impl State {
         let aspect = config.width as f32 / config.height as f32;
         let gamestate = GameState::new_game(aspect);
 
-        // CAMERA
-
         let mut camera_renderer = CameraRenderer::init(&device);
         camera_renderer
             .uniform
             .update_view_proj(&gamestate.world.camera);
 
-        // LIGHT
-
-        let light_uniform = LightUniform {
-            position: [2.0, 2.0, 2.0],
-            _padding: 0,
-            color: [1.0, 0.7, 0.3],
-            radius: 10.0,
-        };
-
-        // We'll want to update our lights position, so we use COPY_DST
-        let light_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Light VB"),
-            contents: bytemuck::cast_slice(&[light_uniform]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
-        let light_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }],
-                label: None,
-            });
-
-        let light_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &light_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: light_buffer.as_entire_binding(),
-            }],
-            label: None,
-        });
+        let light_renderer = LightRenderer::init(&device);
 
         // DEPTH
 
@@ -182,7 +131,7 @@ impl State {
                 bind_group_layouts: &[
                     &texture_bind_group_layout,
                     &camera_renderer.bind_group_layout,
-                    &light_bind_group_layout,
+                    &light_renderer.bind_group_layout,
                 ],
                 push_constant_ranges: &[],
             });
@@ -202,29 +151,7 @@ impl State {
             )
         };
 
-        let light_render_pipeline = {
-            let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Light Pipeline Layout"),
-                bind_group_layouts: &[
-                    &texture_bind_group_layout, // We don't use it in shader, but specify for uniformity
-                    &camera_renderer.bind_group_layout,
-                    &light_bind_group_layout,
-                ],
-                push_constant_ranges: &[],
-            });
-            let shader = wgpu::ShaderModuleDescriptor {
-                label: Some("Light Shader"),
-                source: wgpu::ShaderSource::Wgsl(include_str!("light.wgsl").into()),
-            };
-            State::create_render_pipeline(
-                &device,
-                &layout,
-                config.format,
-                Some(texture::Texture::DEPTH_FORMAT),
-                &[model::ModelVertex::desc()],
-                shader,
-            )
-        };
+        let light_render_pipeline = light_renderer.pipeline(&device, &config, &camera_renderer);
 
         let res_dir = std::path::Path::new(env!("OUT_DIR")).join("res");
         let obj_model = model::Model::load(
@@ -249,9 +176,7 @@ impl State {
             obj_model,
             depth_texture,
             render_pipeline,
-            light_uniform,
-            light_buffer,
-            light_bind_group,
+            light_renderer,
             light_render_pipeline,
             last_update,
             instance_buffer,
@@ -388,16 +313,13 @@ impl State {
         self.camera_renderer
             .update_buffer(&self.queue, &self.gamestate.world.camera);
 
-        let old_position: cgmath::Vector3<_> = self.light_uniform.position.into();
-        self.light_uniform.position =
+        let old_position: cgmath::Vector3<_> = self.light_renderer.uniform.position.into();
+        self.light_renderer.uniform.position =
             (cgmath::Quaternion::from_axis_angle((0.0, 0.0, 1.0).into(), cgmath::Deg(0.5))
                 * old_position)
                 .into();
-        self.queue.write_buffer(
-            &self.light_buffer,
-            0,
-            bytemuck::cast_slice(&[self.light_uniform]),
-        );
+
+        self.light_renderer.update_buffer(&self.queue);
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
@@ -448,19 +370,18 @@ impl State {
                 }),
             });
 
-            render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
-
+            // Render light
             render_pass.set_pipeline(&self.light_render_pipeline);
-
-            render_pass.draw_named_mesh(
+            self.light_renderer.draw_named_mesh(
                 "Asteroid_S",
                 &self.obj_model,
                 &self.camera_renderer.bind_group,
-                &self.light_bind_group,
+                &mut render_pass,
             );
 
             // Render entities
             render_pass.set_pipeline(&self.render_pipeline);
+            render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
 
             let mut offset = 0;
             let mut size = 0;
@@ -480,7 +401,7 @@ impl State {
                         &self.obj_model,
                         offset..(offset + size),
                         &self.camera_renderer.bind_group,
-                        &self.light_bind_group,
+                        &self.light_renderer.bind_group,
                     );
 
                     entity_name = entity.0;
@@ -494,7 +415,7 @@ impl State {
                 &self.obj_model,
                 offset..(offset + size),
                 &self.camera_renderer.bind_group,
-                &self.light_bind_group,
+                &self.light_renderer.bind_group,
             );
         }
 

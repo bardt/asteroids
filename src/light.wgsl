@@ -5,7 +5,7 @@ struct Camera {
 };
 
 // We skip material, which is usually set in group(0)
-[[group(1), binding(0)]]
+[[group(0), binding(0)]]
 var<uniform> camera: Camera;
 
 [[block]]
@@ -13,7 +13,7 @@ struct Light {
     position: vec3<f32>;
     color: vec3<f32>;
 };
-[[group(2), binding(0)]]
+[[group(1), binding(0)]]
 var<uniform> light: Light;
 
 struct VertexInput {

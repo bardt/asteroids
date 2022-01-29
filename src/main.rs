@@ -7,6 +7,7 @@ mod entity;
 mod gamestate;
 mod input;
 mod instance;
+mod light;
 mod model;
 mod state;
 mod texture;

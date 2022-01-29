@@ -448,12 +448,9 @@ where
         camera_bind_group: &'b wgpu::BindGroup,
         light_bind_group: &'b wgpu::BindGroup,
     ) {
-        match model.meshes.iter().find(|mesh| mesh.name == name) {
-            Some(mesh) => {
-                let material = &model.materials[mesh.material];
-                self.draw_mesh(mesh, material, camera_bind_group, light_bind_group);
-            }
-            None => (),
+        if let Some(mesh) = model.meshes.iter().find(|mesh| mesh.name == name) {
+            let material = &model.materials[mesh.material];
+            self.draw_mesh(mesh, material, camera_bind_group, light_bind_group);
         }
     }
     fn draw_named_mesh_instanced(
@@ -464,18 +461,15 @@ where
         camera_bind_group: &'b wgpu::BindGroup,
         light_bind_group: &'b wgpu::BindGroup,
     ) {
-        match model.meshes.iter().find(|mesh| mesh.name == name) {
-            Some(mesh) => {
-                let material = &model.materials[mesh.material];
-                self.draw_mesh_instanced(
-                    mesh,
-                    material,
-                    instances,
-                    camera_bind_group,
-                    light_bind_group,
-                );
-            }
-            None => (),
+        if let Some(mesh) = model.meshes.iter().find(|mesh| mesh.name == name) {
+            let material = &model.materials[mesh.material];
+            self.draw_mesh_instanced(
+                mesh,
+                material,
+                instances,
+                camera_bind_group,
+                light_bind_group,
+            );
         }
     }
 }
