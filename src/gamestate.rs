@@ -40,15 +40,15 @@ impl GameState {
             last_update: Instant::now(),
         };
 
-        game.push(game.make_spaceship((0.0, 0.0, 0.0), 0.));
-        game.push(game.make_asteroid_s((25.0, 25.0, 0.0)));
-        game.push(game.make_asteroid_m((-25.0, 25.0, 0.0)));
-        game.push(game.make_asteroid_l((25.0, -25.0, 0.0)));
+        game.push(game.make_spaceship((0.0, 0.0), 0.));
+        game.push(game.make_asteroid_s((25.0, 25.0)));
+        game.push(game.make_asteroid_m((-25.0, 25.0)));
+        game.push(game.make_asteroid_l((25.0, -25.0)));
 
         game
     }
 
-    pub fn make_asteroid_s(&self, position: (f32, f32, f32)) -> Entity {
+    pub fn make_asteroid_s(&self, position: (f32, f32)) -> Entity {
         Entity {
             name: "Asteroid_S",
             position: self.world.new_position(position.into()),
@@ -56,7 +56,7 @@ impl GameState {
             physics: Some(Physics::random(10., 100.)),
             collision: Some(Collision {
                 shape: Shape::Sphere {
-                    origin: self.world.new_position((0.0, 0.0, 0.0).into()),
+                    origin: self.world.new_position((0.0, 0.0).into()),
                     radius: 1.0,
                 },
                 on_collision: |gamestate, this_id, _other_ids| gamestate.kill(this_id),
@@ -65,7 +65,7 @@ impl GameState {
         }
     }
 
-    pub fn make_asteroid_m(&self, position: (f32, f32, f32)) -> Entity {
+    pub fn make_asteroid_m(&self, position: (f32, f32)) -> Entity {
         Entity {
             name: "Asteroid_M",
             position: self.world.new_position(position.into()),
@@ -73,7 +73,7 @@ impl GameState {
             physics: Some(Physics::random(1., 100.)),
             collision: Some(Collision {
                 shape: Shape::Sphere {
-                    origin: self.world.new_position((0.0, 0.0, 0.0).into()),
+                    origin: self.world.new_position((0.0, 0.0).into()),
                     radius: 3.0,
                 },
                 on_collision: |gamestate, this_id, _other_ids| {
@@ -82,10 +82,10 @@ impl GameState {
                     match this_option {
                         Some(this) => {
                             to_spawn.push(gamestate.make_asteroid_s(
-                                this.position.translate((1.5, 0.0, 0.0).into()).to_tuple(),
+                                this.position.translate((1.5, 0.0).into()).to_tuple(),
                             ));
                             to_spawn.push(gamestate.make_asteroid_s(
-                                this.position.translate((-1.5, 0.0, 0.0).into()).to_tuple(),
+                                this.position.translate((-1.5, 0.0).into()).to_tuple(),
                             ));
                         }
                         None => (),
@@ -102,7 +102,7 @@ impl GameState {
         }
     }
 
-    pub fn make_asteroid_l(&self, position: (f32, f32, f32)) -> Entity {
+    pub fn make_asteroid_l(&self, position: (f32, f32)) -> Entity {
         Entity {
             name: "Asteroid_L",
             position: self.world.new_position(position.into()),
@@ -110,7 +110,7 @@ impl GameState {
             physics: Some(Physics::random(1., 100.)),
             collision: Some(Collision {
                 shape: Shape::Sphere {
-                    origin: self.world.new_position((0.0, 0.0, 0.0).into()),
+                    origin: self.world.new_position((0.0, 0.0).into()),
                     radius: 5.0,
                 },
                 on_collision: |gamestate, this_id, _other_ids| {
@@ -119,10 +119,10 @@ impl GameState {
                     match this_option {
                         Some(this) => {
                             to_spawn.push(gamestate.make_asteroid_m(
-                                this.position.translate((3.5, 0.0, 0.0).into()).to_tuple(),
+                                this.position.translate((3.5, 0.0).into()).to_tuple(),
                             ));
                             to_spawn.push(gamestate.make_asteroid_m(
-                                this.position.translate((-3.5, 0.0, 0.0).into()).to_tuple(),
+                                this.position.translate((-3.5, 0.0).into()).to_tuple(),
                             ));
                         }
                         None => (),
@@ -139,7 +139,7 @@ impl GameState {
         }
     }
 
-    pub fn make_spaceship(&self, position: (f32, f32, f32), rotation_angle: f32) -> Entity {
+    pub fn make_spaceship(&self, position: (f32, f32), rotation_angle: f32) -> Entity {
         Entity {
             name: "Spaceship",
 
@@ -152,7 +152,7 @@ impl GameState {
             }),
             collision: Some(Collision {
                 shape: Shape::Sphere {
-                    origin: self.world.new_position((0.0, 0.0, 0.0).into()),
+                    origin: self.world.new_position((0.0, 0.0).into()),
                     radius: 5.0,
                 },
                 on_collision: |gamestate, this_id, other_ids| {
@@ -184,7 +184,7 @@ impl GameState {
     pub fn make_laser(
         position: WorldPosition,
         rotation: cgmath::Quaternion<f32>,
-        relative_speed: cgmath::Vector3<f32>,
+        relative_speed: cgmath::Vector2<f32>,
     ) -> Entity {
         let init_speed = 80.;
 
@@ -193,7 +193,8 @@ impl GameState {
             position,
             rotation,
             physics: Some(Physics {
-                linear_speed: rotation.rotate_vector(cgmath::Vector3::unit_y()) * init_speed
+                linear_speed: (rotation.rotate_vector(cgmath::Vector3::unit_y())).truncate()
+                    * init_speed
                     + relative_speed,
                 max_linear_speed: 1000.,
                 angular_speed: cgmath::Quaternion::zero(),
@@ -299,8 +300,10 @@ impl GameState {
                                 let delta_angle = dtime * rotation_speed;
                                 let delta_linear_speed = dtime * linear_acceleration;
 
-                                let direction =
-                                    entity.rotation.rotate_vector(cgmath::Vector3::unit_y());
+                                let direction = entity
+                                    .rotation
+                                    .rotate_vector(cgmath::Vector3::unit_y())
+                                    .truncate();
 
                                 if input.is_forward_pressed {
                                     physics.linear_speed += direction * delta_linear_speed;
@@ -433,7 +436,8 @@ impl GameState {
             .count();
         if number_of_asteroids < 3 {
             // @TODO: find an empty location to spawn into
-            self.push(self.make_asteroid_l((0.0, 0.0, 0.0)));
+
+            self.push(self.make_asteroid_l((0.0, 0.0)));
         }
 
         self

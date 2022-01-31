@@ -2,6 +2,7 @@ use std::fmt::Display;
 
 use crate::{camera::Camera, instance::Instance};
 use cgmath::prelude::*;
+use cgmath::Vector2;
 use cgmath::Vector3;
 
 const WORLD_SIZE_MIN: f32 = 100.;
@@ -18,7 +19,7 @@ impl World {
         Self { size, camera }
     }
 
-    pub fn new_position(&self, position: cgmath::Vector3<f32>) -> WorldPosition {
+    pub fn new_position(&self, position: cgmath::Vector2<f32>) -> WorldPosition {
         WorldPosition {
             position,
             world_size: self.size,
@@ -84,14 +85,14 @@ impl World {
 
 #[derive(Copy, Clone, Debug)]
 pub struct WorldPosition {
-    position: cgmath::Vector3<f32>,
+    position: cgmath::Vector2<f32>,
     world_size: (f32, f32),
 }
 
 impl Default for WorldPosition {
     fn default() -> Self {
         Self {
-            position: (0.0, 0.0, 0.0).into(),
+            position: (0.0, 0.0).into(),
             world_size: (100., 100.),
         }
     }
@@ -104,25 +105,28 @@ impl Display for WorldPosition {
 }
 
 impl WorldPosition {
-    pub fn to_vector3(&self) -> cgmath::Vector3<f32> {
+    pub fn to_vector2(&self) -> cgmath::Vector2<f32> {
         self.position
     }
 
-    pub fn to_tuple(&self) -> (f32, f32, f32) {
-        let Vector3 { x, y, z } = self.position;
-        (x, y, z)
+    pub fn to_vector3(&self) -> cgmath::Vector3<f32> {
+        self.position.extend(0.)
+    }
+
+    pub fn to_tuple(&self) -> (f32, f32) {
+        let Vector2 { x, y } = self.position;
+        (x, y)
     }
 
     pub fn distance(&self, other: &Self) -> f32 {
         let world_size = self.world_size;
 
-        let world = cgmath::Vector3 {
+        let world = cgmath::Vector2 {
             x: world_size.0,
             y: world_size.1,
-            z: 0.0,
         };
 
-        cgmath::Vector3::distance(self.position, other.position).min(cgmath::Vector3::distance(
+        cgmath::Vector2::distance(self.position, other.position).min(cgmath::Vector2::distance(
             Self::normalize(&self.position + world, world_size),
             Self::normalize(other.position + world, world_size),
         ))
@@ -130,23 +134,27 @@ impl WorldPosition {
 
     pub fn to_zero(&self) -> Self {
         Self {
-            position: (0.0, 0.0, 0.0).into(),
+            position: (0.0, 0.0).into(),
             world_size: self.world_size,
         }
     }
 
-    pub fn translate(&self, v: cgmath::Vector3<f32>) -> Self {
+    pub fn is_inbound(&self) -> bool {
+        let (w, h) = self.world_size;
+        (-w..w).contains(&self.position.x) && (-h..h).contains(&self.position.y)
+    }
+
+    pub fn translate(&self, v: cgmath::Vector2<f32>) -> Self {
         Self {
             position: Self::normalize(self.position + v, self.world_size),
             world_size: self.world_size,
         }
     }
 
-    fn normalize(position: cgmath::Vector3<f32>, world_size: (f32, f32)) -> cgmath::Vector3<f32> {
-        cgmath::Vector3 {
+    fn normalize(position: cgmath::Vector2<f32>, world_size: (f32, f32)) -> cgmath::Vector2<f32> {
+        cgmath::Vector2 {
             x: position.x % world_size.0,
             y: position.y % world_size.1,
-            z: position.z,
         }
     }
 }

@@ -29,7 +29,7 @@ fn to_option<T>(t: (usize, &Option<T>)) -> Option<(usize, &T)> {
 fn test_find_collisions() {
     let empty: Vec<Vec<usize>> = vec![];
 
-    fn origin(v: (f32, f32, f32)) -> crate::world::WorldPosition {
+    fn origin(v: (f32, f32)) -> crate::world::WorldPosition {
         let world = crate::world::World::init(1.0);
         world.new_position(v.into())
     }
@@ -38,11 +38,11 @@ fn test_find_collisions() {
     assert_eq!(
         find_collisions(vec![
             Some(Shape::Sphere {
-                origin: origin((0.0, 0.0, 0.0)),
+                origin: origin((0.0, 0.0)),
                 radius: 20.
             }),
             Some(Shape::Sphere {
-                origin: origin((40.0, 0.0, 0.0)),
+                origin: origin((40.0, 0.0)),
                 radius: 10.
             })
         ]),
@@ -51,15 +51,15 @@ fn test_find_collisions() {
     assert_eq!(
         find_collisions(vec![
             Some(Shape::Sphere {
-                origin: origin((0.0, 0.0, 0.0)),
+                origin: origin((0.0, 0.0)),
                 radius: 20.
             }),
             Some(Shape::Sphere {
-                origin: origin((40.0, 0.0, 0.0)),
+                origin: origin((40.0, 0.0)),
                 radius: 10.
             }),
             Some(Shape::Sphere {
-                origin: origin((-20.0, 0.0, 0.0)),
+                origin: origin((-20.0, 0.0)),
                 radius: 20.
             })
         ]),
@@ -69,15 +69,15 @@ fn test_find_collisions() {
         find_collisions(vec![
             None,
             Some(Shape::Sphere {
-                origin: origin((0.0, 0.0, 0.0)),
+                origin: origin((0.0, 0.0)),
                 radius: 20.
             }),
             Some(Shape::Sphere {
-                origin: origin((40.0, 0.0, 0.0)),
+                origin: origin((40.0, 0.0)),
                 radius: 10.
             }),
             Some(Shape::Sphere {
-                origin: origin((-20.0, 0.0, 0.0)),
+                origin: origin((-20.0, 0.0)),
                 radius: 20.
             })
         ]),
@@ -87,11 +87,11 @@ fn test_find_collisions() {
         find_collisions(vec![
             None,
             Some(Shape::Sphere {
-                origin: origin((0.0, -40.0, 0.0)),
+                origin: origin((0.0, -40.0)),
                 radius: 15.
             }),
             Some(Shape::Sphere {
-                origin: origin((0.0, 40.0, 0.0)),
+                origin: origin((0.0, 40.0)),
                 radius: 15.
             }),
         ]),

@@ -32,7 +32,7 @@ impl Shape {
     pub(crate) fn translate(&self, position: WorldPosition) -> Shape {
         match *self {
             Shape::Sphere { origin, radius } => Shape::Sphere {
-                origin: origin.translate(position.to_vector3()),
+                origin: origin.translate(position.to_vector2()),
                 radius,
             },
         }
@@ -56,7 +56,7 @@ impl Control {
 
 #[derive(Clone, Copy)]
 pub struct Physics {
-    pub linear_speed: cgmath::Vector3<f32>,
+    pub linear_speed: cgmath::Vector2<f32>,
     pub max_linear_speed: f32,
     pub angular_speed: cgmath::Quaternion<f32>,
 }
@@ -65,10 +65,9 @@ impl Physics {
     pub fn random(max_linear_speed: f32, max_angular_speed: f32) -> Self {
         let mut rng = rand::thread_rng();
 
-        let linear_speed = cgmath::Vector3 {
+        let linear_speed = cgmath::Vector2 {
             x: rng.gen_range(-max_linear_speed..max_linear_speed),
             y: rng.gen_range(-max_linear_speed..max_linear_speed),
-            z: 0.0,
         };
 
         let axis = cgmath::Vector3 {
@@ -92,7 +91,7 @@ impl Physics {
 impl Default for Physics {
     fn default() -> Self {
         Self {
-            linear_speed: (0.0, 0.0, 0.0).into(),
+            linear_speed: (0.0, 0.0).into(),
             max_linear_speed: 30.,
             angular_speed: cgmath::Quaternion::zero(),
         }
