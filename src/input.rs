@@ -7,6 +7,7 @@ pub struct Input {
     pub is_backward_pressed: bool,
     pub is_left_pressed: bool,
     pub is_right_pressed: bool,
+    pub is_spawn_pressed: bool,
 }
 
 impl Input {
@@ -18,6 +19,7 @@ impl Input {
             is_backward_pressed: false,
             is_left_pressed: false,
             is_right_pressed: false,
+            is_spawn_pressed: false,
         }
     }
 
@@ -58,6 +60,11 @@ impl Input {
                         self.is_right_pressed = is_pressed;
                         true
                     }
+                    VirtualKeyCode::N => {
+                        self.is_spawn_pressed = is_pressed;
+                        true
+                    }
+
                     _ => false,
                 }
             }

@@ -29,10 +29,10 @@ impl Shape {
         }
     }
 
-    pub(crate) fn translate(&self, position: WorldPosition) -> Shape {
+    pub(crate) fn translate(&self, position: cgmath::Vector2<f32>) -> Shape {
         match *self {
             Shape::Sphere { origin, radius } => Shape::Sphere {
-                origin: origin.translate(position.to_vector2()),
+                origin: origin.translate(position),
                 radius,
             },
         }

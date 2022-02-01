@@ -261,14 +261,12 @@ impl State {
     }
 
     pub fn input(&mut self, event: &WindowEvent) -> bool {
-        /*  Returns a bool to indicate whether an event has been fully processed.
-            If the method returns true, the main loop won't process the event any further.
-        */
         self.input.process_events(event)
     }
 
     pub fn update(&mut self) {
         self.gamestate
+            .global_input_system(&self.input)
             .control_system(&self.input)
             .lifetime_system()
             .asteroids_spawn_system()
@@ -422,14 +420,19 @@ impl State {
             let mut offset = 0;
             let mut size = 0;
             let mut entity_name = "";
-            let instances_per_entity = 9; // because of ghost instances to make world looping
 
-            for entity in &self.gamestate.instances() {
+            for (name, instance) in self.gamestate.instances() {
                 if entity_name == "" {
-                    entity_name = entity.0;
+                    entity_name = name;
                 }
 
-                if entity_name == entity.0 {
+                let instances_per_entity =
+                    if self.gamestate.world.contains(instance.position.truncate()) {
+                        9 // because of ghost instances to make world looping
+                    } else {
+                        1
+                    };
+                if entity_name == name {
                     size += instances_per_entity;
                 } else {
                     render_pass.draw_named_mesh_instanced(
@@ -440,7 +443,7 @@ impl State {
                         &self.light_renderer.bind_group,
                     );
 
-                    entity_name = entity.0;
+                    entity_name = name;
                     offset += size;
                     size = instances_per_entity;
                 }

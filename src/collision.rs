@@ -98,3 +98,27 @@ fn test_find_collisions() {
         vec![vec![1_usize, 2_usize]]
     );
 }
+
+pub fn _rectangle_contains_circle(
+    left_top: (f32, f32),
+    right_bottom: (f32, f32),
+    center: (f32, f32),
+    radius: f32,
+) -> bool {
+    let (left, top) = left_top;
+    let (right, bottom) = right_bottom;
+    let (x, y) = center;
+
+    let r_sqr = radius.powf(2.);
+
+    let center_inside = (left..right).contains(&x) && (bottom..top).contains(&y);
+
+    if center_inside {
+        (left - x).powf(2.) < r_sqr
+            && (right - x).powf(2.) < r_sqr
+            && (top - y).powf(2.) < r_sqr
+            && (bottom - y).powf(2.) < r_sqr
+    } else {
+        false
+    }
+}

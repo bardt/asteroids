@@ -64,8 +64,12 @@ impl World {
 
     /// Add fake instances to make the world visually looping
     pub(crate) fn add_ghost_instances(&self, instance: &Instance) -> Vec<Instance> {
-        let mut instances = Vec::with_capacity(9);
+        // @TODO: merge with the logic from instanced render in state.rs
+        if !self.contains(instance.position.truncate()) {
+            return vec![instance.clone()];
+        }
 
+        let mut instances = Vec::with_capacity(9);
         for row in (-1)..=1 {
             for col in (-1)..=1 {
                 let mut ghost_instance = instance.clone();
@@ -81,6 +85,25 @@ impl World {
 
         instances
     }
+
+    pub fn contains(&self, point: cgmath::Vector2<f32>) -> bool {
+        let (w, h) = self.size;
+        let (x, y) = point.into();
+
+        (0.0..=w).contains(&(x + w / 2.)) && (0.0..=h).contains(&(y + h / 2.))
+    }
+}
+
+#[test]
+fn test_world_contains() {
+    let world = World::init(1.0);
+
+    assert_eq!(world.contains((0.0, 0.0).into()), true);
+    assert_eq!(world.contains((-50.0, -50.0).into()), true);
+    assert_eq!(world.contains((50.0, 50.0).into()), true);
+
+    assert_eq!(world.contains((-52.0, 0.0).into()), false);
+    assert_eq!(world.contains((0.0, -100.0).into()), false);
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -119,16 +142,16 @@ impl WorldPosition {
     }
 
     pub fn distance(&self, other: &Self) -> f32 {
-        let world_size = self.world_size;
+        let (w, h) = self.world_size;
 
         let world = cgmath::Vector2 {
-            x: world_size.0,
-            y: world_size.1,
+            x: w / 2.,
+            y: h / 2.,
         };
 
         cgmath::Vector2::distance(self.position, other.position).min(cgmath::Vector2::distance(
-            Self::normalize(&self.position + world, world_size),
-            Self::normalize(other.position + world, world_size),
+            Self::normalize(&self.position + world, self.world_size),
+            Self::normalize(other.position + world, self.world_size),
         ))
     }
 
@@ -139,11 +162,6 @@ impl WorldPosition {
         }
     }
 
-    pub fn is_inbound(&self) -> bool {
-        let (w, h) = self.world_size;
-        (-w..w).contains(&self.position.x) && (-h..h).contains(&self.position.y)
-    }
-
     pub fn translate(&self, v: cgmath::Vector2<f32>) -> Self {
         Self {
             position: Self::normalize(self.position + v, self.world_size),
@@ -152,9 +170,66 @@ impl WorldPosition {
     }
 
     fn normalize(position: cgmath::Vector2<f32>, world_size: (f32, f32)) -> cgmath::Vector2<f32> {
-        cgmath::Vector2 {
-            x: position.x % world_size.0,
-            y: position.y % world_size.1,
+        cgmath::vec2(
+            Self::normalize_coord(position.x, world_size.0),
+            Self::normalize_coord(position.y, world_size.1),
+        )
+    }
+
+    fn normalize_coord(x: f32, world: f32) -> f32 {
+        let x_clamped = x % world;
+        let half_world = world / 2.;
+
+        if (-half_world..=half_world).contains(&x_clamped) {
+            x_clamped
+        } else {
+            x_clamped - x_clamped / x_clamped.abs() * world
         }
     }
+}
+
+#[test]
+fn world_position_distance() {
+    let mut a = WorldPosition::default();
+    let mut b = WorldPosition::default();
+    let mut c = WorldPosition::default();
+
+    a.position = cgmath::vec2(45., 0.);
+    b.position = cgmath::vec2(-45., 0.);
+    c.position = cgmath::vec2(30., 0.);
+
+    assert_eq!(a.distance(&b), 10.);
+    assert_eq!(a.distance(&c), 15.);
+    assert_eq!(b.distance(&c), 25.);
+}
+
+#[test]
+fn test_world_position_normalize() {
+    let size = (100., 100.);
+    assert_eq!(WorldPosition::normalize(cgmath::vec2(0., 0.), size).x, 0.);
+    assert_eq!(
+        WorldPosition::normalize(cgmath::vec2(60., 0.), size).x,
+        -40.
+    );
+    assert_eq!(
+        WorldPosition::normalize(WorldPosition::normalize(cgmath::vec2(60., 0.), size), size).x,
+        -40.
+    );
+    assert_eq!(
+        WorldPosition::normalize(cgmath::vec2(-60., 0.), size).x,
+        40.
+    );
+    assert_eq!(
+        WorldPosition::normalize(cgmath::vec2(-160., 0.), size).x,
+        40.
+    );
+}
+
+#[test]
+fn test_world_position_translate() {
+    let world_postion = WorldPosition::default();
+    assert_eq!(
+        world_postion.translate(cgmath::vec2(55., 0.)).position.x,
+        -45.
+    );
 }

@@ -23,6 +23,8 @@ use rayon::iter::ParallelIterator;
 use std::time::Duration;
 use std::time::Instant;
 
+use rand::Rng;
+
 pub struct GameState {
     entities: Vec<Option<Entity>>,
     pub world: World,
@@ -70,7 +72,7 @@ impl GameState {
             name: "Asteroid_M",
             position: self.world.new_position(position.into()),
             rotation: cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), Deg(0.0)),
-            physics: Some(Physics::random(1., 100.)),
+            physics: Some(Physics::random(10., 100.)),
             collision: Some(Collision {
                 shape: Shape::Sphere {
                     origin: self.world.new_position((0.0, 0.0).into()),
@@ -107,7 +109,7 @@ impl GameState {
             name: "Asteroid_L",
             position: self.world.new_position(position.into()),
             rotation: cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), Deg(0.0)),
-            physics: Some(Physics::random(1., 100.)),
+            physics: Some(Physics::random(5., 100.)),
             collision: Some(Collision {
                 shape: Shape::Sphere {
                     origin: self.world.new_position((0.0, 0.0).into()),
@@ -255,6 +257,30 @@ impl GameState {
         debug(&format!("Entites: {:?}", self.entities));
     }
 
+    pub fn spawn_asteroid(&mut self) {
+        // Spawn outside of the world
+        let mut rng = rand::thread_rng();
+        let asteroid_radius = 5.;
+        let (w, h) = self.world.size;
+
+        let mut position = (
+            rng.gen_range(0.0..w) - w / 2.,
+            rng.gen_range(0.0..h) - h / 2.,
+        );
+        if rng.gen_bool(0.5) {
+            let left = rng.gen_bool(0.5);
+            position.0 = (w / 2. + asteroid_radius) * if left { -1. } else { 1. };
+        } else {
+            let bottom = rng.gen_bool(0.5);
+            position.1 = (h / 2. + asteroid_radius) * if bottom { -1. } else { 1. };
+        }
+
+        // @TODO: make it always directing routhly towards the center of the world
+        let mut asteroid = self.make_asteroid_l(position);
+        asteroid.collision = None; // @TODO: turn collision back on
+        self.push(asteroid);
+    }
+
     pub fn get_entity(&self, id: EntityIndex) -> Option<&Entity> {
         self.entities.get(id).unwrap().as_ref()
     }
@@ -371,7 +397,7 @@ impl GameState {
                 Some(entity) => entity
                     .collision
                     .as_ref()
-                    .map(|collision| collision.shape.translate(entity.position)),
+                    .map(|collision| collision.shape.translate(entity.position.to_vector2())),
                 None => None,
             })
             .collect::<Vec<_>>();
@@ -435,9 +461,7 @@ impl GameState {
             })
             .count();
         if number_of_asteroids < 3 {
-            // @TODO: find an empty location to spawn into
-
-            self.push(self.make_asteroid_l((0.0, 0.0)));
+            self.spawn_asteroid();
         }
 
         self
@@ -445,5 +469,12 @@ impl GameState {
 
     pub fn submit(&mut self) {
         self.last_update = Instant::now();
+    }
+
+    pub fn global_input_system(&mut self, input: &Input) -> &mut Self {
+        if input.is_spawn_pressed {
+            self.spawn_asteroid();
+        }
+        self
     }
 }
