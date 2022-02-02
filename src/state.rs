@@ -5,13 +5,12 @@ use crate::{
     debug,
     gamestate::GameState,
     input::Input,
-    instance::{Instance, InstanceRaw},
+    instance::InstanceRaw,
     model::{self, DrawModel, Model, Vertex},
     texture,
 };
 
 use cgmath::Rotation3;
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use winit::{event::WindowEvent, window::Window};
 

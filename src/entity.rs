@@ -40,8 +40,6 @@ impl Debug for Entity {
 }
 
 impl Entity {
-    pub fn _direction(&self, _dtime: &Duration) {}
-
     pub fn to_instance(&self) -> Instance {
         Instance {
             position: self.position.to_vector3(),
@@ -50,29 +48,26 @@ impl Entity {
     }
 
     pub fn update_physics(&mut self, dtime: &Duration) {
-        match &mut self.physics {
-            Some(physics) => {
-                // Limit maximum speed
-                if physics.linear_speed.magnitude2() > 0. {
-                    let new_magnitude = physics
-                        .max_linear_speed
-                        .min(physics.linear_speed.magnitude());
-                    physics.linear_speed = physics.linear_speed.normalize_to(new_magnitude);
-                }
-
-                // Move
-                self.position = self
-                    .position
-                    .translate(physics.linear_speed * (dtime.as_millis() as f32) / 1000.0);
-
-                // Rotate
-                self.rotation = cgmath::Quaternion::nlerp(
-                    self.rotation,
-                    self.rotation * physics.angular_speed,
-                    (dtime.as_millis() as f32) / 1000.0,
-                );
+        if let Some(physics) = &mut self.physics {
+            // Limit maximum speed
+            if physics.linear_speed.magnitude2() > 0. {
+                let new_magnitude = physics
+                    .max_linear_speed
+                    .min(physics.linear_speed.magnitude());
+                physics.linear_speed = physics.linear_speed.normalize_to(new_magnitude);
             }
-            None => (),
+
+            // Move
+            self.position = self
+                .position
+                .translate(physics.linear_speed * (dtime.as_millis() as f32) / 1000.0);
+
+            // Rotate
+            self.rotation = cgmath::Quaternion::nlerp(
+                self.rotation,
+                self.rotation * physics.angular_speed,
+                (dtime.as_millis() as f32) / 1000.0,
+            );
         }
     }
 }

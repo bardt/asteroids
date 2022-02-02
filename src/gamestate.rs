@@ -276,8 +276,12 @@ impl GameState {
             position.1 = (h / 2. + asteroid_radius) * if bottom { -1. } else { 1. };
         }
 
-        // @TODO: make it always directing routhly towards the center of the world
         let mut asteroid = self.make_asteroid_l(position);
+        if let Some(physics) = &mut asteroid.physics {
+            let direction_towards_world_center = asteroid.position.to_vector2() * -1.;
+            physics.linear_speed =
+                direction_towards_world_center.normalize_to(physics.linear_speed.magnitude());
+        }
         asteroid.collision = None; // @TODO: turn collision back on
         self.push(asteroid);
     }
