@@ -12,7 +12,6 @@ use crate::{
 
 use cgmath::Rotation3;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use std::time::Instant;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use winit::{event::WindowEvent, window::Window};
 
@@ -32,7 +31,6 @@ pub struct State {
     light_render_pipeline: wgpu::RenderPipeline,
     backdrop_renderer: BackdropRenderer,
     backdrop_render_pipeline: wgpu::RenderPipeline,
-    last_update: Instant,
     gamestate: GameState,
     input: Input,
 }
@@ -107,19 +105,7 @@ impl State {
 
         // INSTANCES
 
-        let instance_data = gamestate
-            .instances()
-            .iter()
-            .map(|(_name, instance)| {
-                gamestate
-                    .world
-                    .add_ghost_instances(instance)
-                    .par_iter()
-                    .map(|instance| Instance::to_raw(instance))
-                    .collect::<Vec<_>>()
-            })
-            .collect::<Vec<_>>()
-            .concat();
+        let instance_data = gamestate.instances_raw();
         // This buffer will be overridden in `update` to animate instances
         let instance_buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Instance Buffer"),
@@ -168,7 +154,6 @@ impl State {
         )
         .unwrap();
 
-        let last_update = std::time::Instant::now();
         let input = Input::new();
 
         Self {
@@ -179,7 +164,6 @@ impl State {
             size,
             gamestate,
             camera_renderer,
-
             obj_model,
             depth_texture,
             render_pipeline,
@@ -187,7 +171,6 @@ impl State {
             light_render_pipeline,
             backdrop_renderer,
             backdrop_render_pipeline,
-            last_update,
             instance_buffer,
             instance_buffer_size,
             input,
@@ -274,23 +257,7 @@ impl State {
             .collision_system()
             .submit();
 
-        self.last_update = Instant::now();
-
-        let instance_data = self
-            .gamestate
-            .instances()
-            .par_iter()
-            .map(|(_, instance)| {
-                self.gamestate
-                    .world
-                    .add_ghost_instances(instance)
-                    .par_iter()
-                    .map(|instance| Instance::to_raw(instance))
-                    .collect::<Vec<_>>()
-            })
-            .collect::<Vec<_>>()
-            .concat();
-
+        let instance_data = self.gamestate.instances_raw();
         let buffer_contents = bytemuck::cast_slice(&instance_data) as &[u8];
 
         if buffer_contents.len() > self.instance_buffer_size {
@@ -417,45 +384,18 @@ impl State {
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
 
-            let mut offset = 0;
-            let mut size = 0;
-            let mut entity_name = "";
-
-            for (name, instance) in self.gamestate.instances() {
-                if entity_name == "" {
-                    entity_name = name;
-                }
-
-                let instances_per_entity =
-                    if self.gamestate.world.contains(instance.position.truncate()) {
-                        9 // because of ghost instances to make world looping
-                    } else {
-                        1
-                    };
-                if entity_name == name {
-                    size += instances_per_entity;
-                } else {
-                    render_pass.draw_named_mesh_instanced(
-                        entity_name,
-                        &self.obj_model,
-                        offset..(offset + size),
-                        &self.camera_renderer.bind_group,
-                        &self.light_renderer.bind_group,
-                    );
-
-                    entity_name = name;
-                    offset += size;
-                    size = instances_per_entity;
-                }
+            let mut offset = 0_u32;
+            for (name, instances) in self.gamestate.instances_grouped() {
+                let size = instances.len() as u32;
+                render_pass.draw_named_mesh_instanced(
+                    name,
+                    &self.obj_model,
+                    offset..(offset + size),
+                    &self.camera_renderer.bind_group,
+                    &self.light_renderer.bind_group,
+                );
+                offset += size;
             }
-
-            render_pass.draw_named_mesh_instanced(
-                entity_name,
-                &self.obj_model,
-                offset..(offset + size),
-                &self.camera_renderer.bind_group,
-                &self.light_renderer.bind_group,
-            );
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));

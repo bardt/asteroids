@@ -9,6 +9,7 @@ use crate::components::Shape;
 use crate::debug;
 use crate::entity::Entity;
 
+use crate::instance::InstanceRaw;
 use crate::world::World;
 use crate::world::WorldPosition;
 
@@ -289,20 +290,54 @@ impl GameState {
         self.entities.get_mut(id).unwrap().as_mut()
     }
 
-    pub fn instances(&self) -> Vec<(&str, Instance)> {
-        self.entities
-            .iter()
-            .filter_map(|option_entity| {
-                option_entity.as_ref().map(|entity| {
-                    (
-                        entity.name,
-                        Instance {
-                            position: entity.position.to_vector3(),
-                            rotation: entity.rotation,
-                        },
-                    )
-                })
+    pub fn entities_grouped(&self) -> Vec<(&str, Vec<&Entity>)> {
+        let mut groups = Vec::new();
+        let mut group = Vec::new();
+        let mut entity_name = "";
+
+        for entity in &self.entities {
+            if let Some(entity) = entity {
+                if entity_name == "" {
+                    entity_name = entity.name;
+                }
+
+                if entity_name == entity.name {
+                    group.push(entity);
+                } else {
+                    groups.push((entity_name, group));
+                    entity_name = entity.name;
+                    group = vec![entity];
+                }
+            }
+        }
+
+        groups.push((entity_name, group));
+        groups
+    }
+
+    pub fn instances_grouped(&self) -> Vec<(&str, Vec<Instance>)> {
+        let world = &self.world;
+        self.entities_grouped()
+            .par_iter()
+            .map(|(name, entities)| {
+                (
+                    *name,
+                    entities
+                        .par_iter()
+                        .map(|entity| world.add_ghost_instances(&entity.to_instance()))
+                        .flatten()
+                        .collect::<Vec<Instance>>(),
+                )
             })
+            .collect::<Vec<_>>()
+    }
+
+    pub fn instances_raw(&self) -> Vec<InstanceRaw> {
+        self.instances_grouped()
+            .par_iter()
+            .map(|(_name, instances)| instances)
+            .flatten()
+            .map(|instance| Instance::to_raw(instance))
             .collect::<Vec<_>>()
     }
 
@@ -477,4 +512,46 @@ impl GameState {
         }
         self
     }
+}
+
+#[test]
+fn test_gamestate_entities_grouped() {
+    let a = Entity {
+        name: "A",
+        ..Default::default()
+    };
+    let b = Entity {
+        name: "B",
+        ..Default::default()
+    };
+
+    let entities = vec![
+        Some(a.clone()),
+        Some(a.clone()),
+        Some(b.clone()),
+        Some(b.clone()),
+        Some(a.clone()),
+        None,
+        Some(a.clone()),
+    ];
+
+    let gamestate = GameState {
+        entities,
+        world: World::init(1.0),
+        last_update: Instant::now(),
+    };
+
+    let expected = vec![
+        ("A", vec![a.clone(), a.clone()]),
+        ("B", vec![a.clone(), a.clone()]),
+        ("A", vec![a.clone(), a.clone()]),
+    ];
+
+    assert_eq!(gamestate.entities_grouped().len(), expected.len());
+    assert_eq!(gamestate.entities_grouped()[0].0, expected[0].0);
+    assert_eq!(gamestate.entities_grouped()[0].1.len(), expected[0].1.len());
+    assert_eq!(gamestate.entities_grouped()[1].0, expected[1].0);
+    assert_eq!(gamestate.entities_grouped()[1].1.len(), expected[1].1.len());
+    assert_eq!(gamestate.entities_grouped()[2].0, expected[2].0);
+    assert_eq!(gamestate.entities_grouped()[2].1.len(), expected[2].1.len());
 }

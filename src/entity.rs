@@ -3,6 +3,7 @@ use cgmath::Zero;
 use core::fmt::Debug;
 use std::time::Duration;
 
+use crate::instance::Instance;
 use crate::{components, world::WorldPosition};
 
 #[derive(Clone, Copy)]
@@ -40,6 +41,13 @@ impl Debug for Entity {
 
 impl Entity {
     pub fn _direction(&self, _dtime: &Duration) {}
+
+    pub fn to_instance(&self) -> Instance {
+        Instance {
+            position: self.position.to_vector3(),
+            rotation: self.rotation,
+        }
+    }
 
     pub fn update_physics(&mut self, dtime: &Duration) {
         match &mut self.physics {

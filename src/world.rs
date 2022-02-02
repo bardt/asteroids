@@ -64,7 +64,7 @@ impl World {
 
     /// Add fake instances to make the world visually looping
     pub(crate) fn add_ghost_instances(&self, instance: &Instance) -> Vec<Instance> {
-        // @TODO: merge with the logic from instanced render in state.rs
+        // @TODO: wait until entity fully enters the world
         if !self.contains(instance.position.truncate()) {
             return vec![instance.clone()];
         }
