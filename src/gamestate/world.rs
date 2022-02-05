@@ -1,9 +1,9 @@
-use std::fmt::Display;
-
+use super::entity::Entity;
 use crate::{camera::Camera, instance::Instance};
 use cgmath::prelude::*;
 use cgmath::Vector2;
 use cgmath::Vector3;
+use std::fmt::Display;
 
 const WORLD_SIZE_MIN: f32 = 100.;
 
@@ -63,10 +63,10 @@ impl World {
     }
 
     /// Add fake instances to make the world visually looping
-    pub(crate) fn add_ghost_instances(&self, instance: &Instance) -> Vec<Instance> {
-        // @TODO: wait until entity fully enters the world
-        if !self.contains(instance.position.truncate()) {
-            return vec![instance.clone()];
+    pub(crate) fn add_ghost_instances(&self, entity: &Entity) -> Vec<Instance> {
+        let instance = entity.to_instance();
+        if !entity.entered_world() {
+            return vec![instance];
         }
 
         let mut instances = Vec::with_capacity(9);
@@ -85,25 +85,6 @@ impl World {
 
         instances
     }
-
-    pub fn contains(&self, point: cgmath::Vector2<f32>) -> bool {
-        let (w, h) = self.size;
-        let (x, y) = point.into();
-
-        (0.0..=w).contains(&(x + w / 2.)) && (0.0..=h).contains(&(y + h / 2.))
-    }
-}
-
-#[test]
-fn test_world_contains() {
-    let world = World::init(1.0);
-
-    assert_eq!(world.contains((0.0, 0.0).into()), true);
-    assert_eq!(world.contains((-50.0, -50.0).into()), true);
-    assert_eq!(world.contains((50.0, 50.0).into()), true);
-
-    assert_eq!(world.contains((-52.0, 0.0).into()), false);
-    assert_eq!(world.contains((0.0, -100.0).into()), false);
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -141,6 +122,10 @@ impl WorldPosition {
         (x, y)
     }
 
+    pub fn world_size(&self) -> (f32, f32) {
+        self.world_size
+    }
+
     pub fn distance(&self, other: &Self) -> f32 {
         let (w, h) = self.world_size;
 
@@ -162,9 +147,18 @@ impl WorldPosition {
         }
     }
 
+    /// Translate with normalization. The result position is always inside world bounds.
     pub fn translate(&self, v: cgmath::Vector2<f32>) -> Self {
         Self {
             position: Self::normalize(self.position + v, self.world_size),
+            world_size: self.world_size,
+        }
+    }
+
+    /// Translate without normalization. The result position can be outside world bounds.
+    pub fn translate_unsafe(&self, v: cgmath::Vector2<f32>) -> Self {
+        Self {
+            position: self.position + v,
             world_size: self.world_size,
         }
     }

@@ -1,4 +1,4 @@
-use crate::components::Shape;
+use crate::gamestate::components::Shape;
 
 pub(crate) fn find_collisions(shapes: Vec<Option<Shape>>) -> Vec<Vec<usize>> {
     let mut total_collisions = vec![];
@@ -27,10 +27,12 @@ fn to_option<T>(t: (usize, &Option<T>)) -> Option<(usize, &T)> {
 
 #[test]
 fn test_find_collisions() {
+    use crate::gamestate::world::{World, WorldPosition};
+
     let empty: Vec<Vec<usize>> = vec![];
 
-    fn origin(v: (f32, f32)) -> crate::world::WorldPosition {
-        let world = crate::world::World::init(1.0);
+    fn origin(v: (f32, f32)) -> WorldPosition {
+        let world = World::init(1.0);
         world.new_position(v.into())
     }
 
@@ -99,7 +101,7 @@ fn test_find_collisions() {
     );
 }
 
-pub fn _rectangle_contains_circle(
+pub fn rectangle_contains_circle(
     left_top: (f32, f32),
     right_bottom: (f32, f32),
     center: (f32, f32),
@@ -114,11 +116,24 @@ pub fn _rectangle_contains_circle(
     let center_inside = (left..right).contains(&x) && (bottom..top).contains(&y);
 
     if center_inside {
-        (left - x).powf(2.) < r_sqr
-            && (right - x).powf(2.) < r_sqr
-            && (top - y).powf(2.) < r_sqr
-            && (bottom - y).powf(2.) < r_sqr
+        (left - x).powf(2.) > r_sqr
+            && (right - x).powf(2.) > r_sqr
+            && (top - y).powf(2.) > r_sqr
+            && (bottom - y).powf(2.) > r_sqr
     } else {
         false
     }
+}
+
+#[test]
+fn test_rectangle_contains_circle() {
+    assert_eq!(
+        rectangle_contains_circle((-50., 50.), (50., -50.), (-40., 0.), 9.),
+        true
+    );
+
+    assert_eq!(
+        rectangle_contains_circle((-50., 50.), (50., -50.), (-40., 0.), 11.),
+        false
+    );
 }

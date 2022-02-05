@@ -1,10 +1,8 @@
 static MODE: Mode = Mode::Dev;
 
 mod backdrop;
-mod camera;
 mod collision;
-mod components;
-mod entity;
+mod camera;
 mod gamestate;
 mod input;
 mod instance;
@@ -12,7 +10,6 @@ mod light;
 mod model;
 mod state;
 mod texture;
-mod world;
 
 use state::State;
 use winit::{

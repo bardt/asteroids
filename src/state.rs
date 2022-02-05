@@ -12,6 +12,7 @@ use crate::{
 
 use cgmath::Rotation3;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
+use winit::event::{KeyboardInput, VirtualKeyCode};
 use winit::{event::WindowEvent, window::Window};
 
 pub struct State {
@@ -244,11 +245,29 @@ impl State {
 
     pub fn input(&mut self, event: &WindowEvent) -> bool {
         self.input.process_events(event)
+            || match event {
+                WindowEvent::KeyboardInput {
+                    input:
+                        KeyboardInput {
+                            virtual_keycode: Some(keycode),
+                            ..
+                        },
+                    ..
+                } => match keycode {
+                    VirtualKeyCode::N => {
+                        let aspect = self.config.width as f32 / self.config.height as f32;
+                        self.gamestate = GameState::new_game(aspect);
+                        true
+                    }
+
+                    _ => false,
+                },
+                _ => false,
+            }
     }
 
     pub fn update(&mut self) {
         self.gamestate
-            .global_input_system(&self.input)
             .control_system(&self.input)
             .lifetime_system()
             .asteroids_spawn_system()

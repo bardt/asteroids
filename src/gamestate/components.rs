@@ -3,11 +3,11 @@ use std::time::Duration;
 use cgmath::{Deg, Rotation3, Zero};
 use rand::Rng;
 
-use crate::{gamestate::GameState, world::WorldPosition};
+use super::world::WorldPosition;
+use super::GameState;
 
 #[derive(Clone, Copy)]
 pub struct Collision {
-    pub shape: Shape,
     pub on_collision: fn(&mut GameState, this_id: usize, other_ids: &[usize]),
 }
 

@@ -1,21 +1,14 @@
+pub mod components;
+mod entity;
+pub mod world;
+
 use crate::collision;
-use crate::components::Collision;
-use crate::components::Control;
-use crate::components::Health;
-use crate::components::Lifetime;
-use crate::components::Physics;
 
-use crate::components::Shape;
 use crate::debug;
-use crate::entity::Entity;
-
 use crate::instance::InstanceRaw;
-use crate::world::World;
-use crate::world::WorldPosition;
 
 use crate::{input::Input, instance::Instance};
 use cgmath::prelude::*;
-use cgmath::Deg;
 
 use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::IntoParallelRefMutIterator;
@@ -25,6 +18,9 @@ use std::time::Duration;
 use std::time::Instant;
 
 use rand::Rng;
+
+use self::entity::Entity;
+use self::world::World;
 
 pub struct GameState {
     entities: Vec<Option<Entity>>,
@@ -43,194 +39,16 @@ impl GameState {
             last_update: Instant::now(),
         };
 
-        game.push(game.make_spaceship((0.0, 0.0), 0.));
-        game.push(game.make_asteroid_s((25.0, 25.0)));
-        game.push(game.make_asteroid_m((-25.0, 25.0)));
-        game.push(game.make_asteroid_l((25.0, -25.0)));
+        game.push(Entity::make_spaceship(
+            game.world.new_position((0.0, 0.0).into()),
+            0.,
+        ));
+
+        game.spawn_asteroid();
+        game.spawn_asteroid();
+        game.spawn_asteroid();
 
         game
-    }
-
-    pub fn make_asteroid_s(&self, position: (f32, f32)) -> Entity {
-        Entity {
-            name: "Asteroid_S",
-            position: self.world.new_position(position.into()),
-            rotation: cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), Deg(0.0)),
-            physics: Some(Physics::random(10., 100.)),
-            collision: Some(Collision {
-                shape: Shape::Sphere {
-                    origin: self.world.new_position((0.0, 0.0).into()),
-                    radius: 1.0,
-                },
-                on_collision: |gamestate, this_id, _other_ids| gamestate.kill(this_id),
-            }),
-            ..Default::default()
-        }
-    }
-
-    pub fn make_asteroid_m(&self, position: (f32, f32)) -> Entity {
-        Entity {
-            name: "Asteroid_M",
-            position: self.world.new_position(position.into()),
-            rotation: cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), Deg(0.0)),
-            physics: Some(Physics::random(10., 100.)),
-            collision: Some(Collision {
-                shape: Shape::Sphere {
-                    origin: self.world.new_position((0.0, 0.0).into()),
-                    radius: 3.0,
-                },
-                on_collision: |gamestate, this_id, _other_ids| {
-                    let this_option = gamestate.get_entity(this_id);
-                    let mut to_spawn = Vec::with_capacity(2);
-                    match this_option {
-                        Some(this) => {
-                            to_spawn.push(gamestate.make_asteroid_s(
-                                this.position.translate((1.5, 0.0).into()).to_tuple(),
-                            ));
-                            to_spawn.push(gamestate.make_asteroid_s(
-                                this.position.translate((-1.5, 0.0).into()).to_tuple(),
-                            ));
-                        }
-                        None => (),
-                    }
-
-                    for e in to_spawn {
-                        gamestate.push(e);
-                    }
-
-                    gamestate.kill(this_id)
-                },
-            }),
-            ..Default::default()
-        }
-    }
-
-    pub fn make_asteroid_l(&self, position: (f32, f32)) -> Entity {
-        Entity {
-            name: "Asteroid_L",
-            position: self.world.new_position(position.into()),
-            rotation: cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), Deg(0.0)),
-            physics: Some(Physics::random(5., 100.)),
-            collision: Some(Collision {
-                shape: Shape::Sphere {
-                    origin: self.world.new_position((0.0, 0.0).into()),
-                    radius: 5.0,
-                },
-                on_collision: |gamestate, this_id, _other_ids| {
-                    let this_option = gamestate.get_entity(this_id);
-                    let mut to_spawn = Vec::with_capacity(2);
-                    match this_option {
-                        Some(this) => {
-                            to_spawn.push(gamestate.make_asteroid_m(
-                                this.position.translate((3.5, 0.0).into()).to_tuple(),
-                            ));
-                            to_spawn.push(gamestate.make_asteroid_m(
-                                this.position.translate((-3.5, 0.0).into()).to_tuple(),
-                            ));
-                        }
-                        None => (),
-                    }
-
-                    for e in to_spawn {
-                        gamestate.push(e);
-                    }
-
-                    gamestate.kill(this_id)
-                },
-            }),
-            ..Default::default()
-        }
-    }
-
-    pub fn make_spaceship(&self, position: (f32, f32), rotation_angle: f32) -> Entity {
-        Entity {
-            name: "Spaceship",
-
-            position: self.world.new_position(position.into()),
-            rotation: cgmath::Quaternion::from_angle_z(Deg(rotation_angle)),
-
-            physics: Some(Physics {
-                max_linear_speed: 60.,
-                ..Default::default()
-            }),
-            collision: Some(Collision {
-                shape: Shape::Sphere {
-                    origin: self.world.new_position((0.0, 0.0).into()),
-                    radius: 5.0,
-                },
-                on_collision: |gamestate, this_id, other_ids| {
-                    let asteroids_number = other_ids
-                        .iter()
-                        .flat_map(|id| gamestate.get_entity(*id))
-                        .filter(|entity| entity.name.starts_with("Asteroid"))
-                        .count();
-
-                    let this = gamestate.get_entity_mut(this_id).unwrap();
-
-                    match &mut this.health {
-                        Some(health) => {
-                            health.deal_damage(asteroids_number);
-                            if health.level == 0 {
-                                gamestate.kill(this_id);
-                            }
-                        }
-                        None => (),
-                    }
-                },
-            }),
-            control: Some(Control::enabled()),
-            health: Some(Health { level: 3 }),
-            ..Default::default()
-        }
-    }
-
-    pub fn make_laser(
-        position: WorldPosition,
-        rotation: cgmath::Quaternion<f32>,
-        relative_speed: cgmath::Vector2<f32>,
-    ) -> Entity {
-        let init_speed = 80.;
-
-        Entity {
-            name: "Laser",
-            position,
-            rotation,
-            physics: Some(Physics {
-                linear_speed: (rotation.rotate_vector(cgmath::Vector3::unit_y())).truncate()
-                    * init_speed
-                    + relative_speed,
-                max_linear_speed: 1000.,
-                angular_speed: cgmath::Quaternion::zero(),
-            }),
-            lifetime: Some(Lifetime {
-                dies_after: Duration::from_secs(1),
-            }),
-            collision: Some(Collision {
-                shape: Shape::Sphere {
-                    origin: position.to_zero(),
-                    radius: 1.,
-                },
-                on_collision: |gamestate, this_id, other_ids| {
-                    let mut should_kill_self = false;
-
-                    for id in other_ids {
-                        match gamestate.get_entity(*id) {
-                            Some(other) => {
-                                if other.name.starts_with("Asteroid") {
-                                    should_kill_self = true;
-                                }
-                            }
-                            None => (),
-                        }
-                    }
-
-                    if should_kill_self {
-                        gamestate.kill(this_id);
-                    }
-                },
-            }),
-            ..Default::default()
-        }
     }
 
     pub fn push(&mut self, entity: Entity) {
@@ -276,13 +94,12 @@ impl GameState {
             position.1 = (h / 2. + asteroid_radius) * if bottom { -1. } else { 1. };
         }
 
-        let mut asteroid = self.make_asteroid_l(position);
+        let mut asteroid = Entity::make_asteroid_l(self.world.new_position(position.into()));
+        let direction_towards_world_center = asteroid.position().to_vector2() * -1.;
         if let Some(physics) = &mut asteroid.physics {
-            let direction_towards_world_center = asteroid.position.to_vector2() * -1.;
             physics.linear_speed =
                 direction_towards_world_center.normalize_to(physics.linear_speed.magnitude());
         }
-        asteroid.collision = None; // @TODO: turn collision back on
         self.push(asteroid);
     }
 
@@ -328,7 +145,7 @@ impl GameState {
                     *name,
                     entities
                         .par_iter()
-                        .map(|entity| world.add_ghost_instances(&entity.to_instance()))
+                        .map(|entity| world.add_ghost_instances(entity))
                         .flatten()
                         .collect::<Vec<Instance>>(),
                 )
@@ -354,8 +171,9 @@ impl GameState {
 
         let delta_time = self.delta_time();
         for option_entity in &mut self.entities {
-            match option_entity {
-                Some(entity) => match (&mut entity.control, &mut entity.physics) {
+            if let Some(entity) = option_entity {
+                let position = entity.position();
+                match (&mut entity.control, &mut entity.physics) {
                     (Some(control), Some(physics)) => {
                         if control.enabled {
                             let rotation_speed = 180.;
@@ -390,8 +208,8 @@ impl GameState {
                             {
                                 if control.weapon_cooldown < delta_time {
                                     if input.is_backward_pressed {
-                                        to_spawn.push(GameState::make_laser(
-                                            entity.position,
+                                        to_spawn.push(Entity::make_laser(
+                                            position,
                                             entity.rotation,
                                             entity.physics.unwrap().linear_speed,
                                         ));
@@ -406,8 +224,7 @@ impl GameState {
                         }
                     }
                     _ => (),
-                },
-                None => (),
+                }
             }
         }
 
@@ -434,9 +251,9 @@ impl GameState {
             .par_iter()
             .map(|option_entity| match option_entity {
                 Some(entity) => entity
-                    .collision
+                    .shape
                     .as_ref()
-                    .map(|collision| collision.shape.translate(entity.position.to_vector2())),
+                    .map(|shape| shape.translate(entity.position().to_vector2())),
                 None => None,
             })
             .collect::<Vec<_>>();
@@ -509,25 +326,14 @@ impl GameState {
     pub fn submit(&mut self) {
         self.last_update = Instant::now();
     }
-
-    pub fn global_input_system(&mut self, input: &Input) -> &mut Self {
-        if input.is_spawn_pressed {
-            self.spawn_asteroid();
-        }
-        self
-    }
 }
 
 #[test]
 fn test_gamestate_entities_grouped() {
-    let a = Entity {
-        name: "A",
-        ..Default::default()
-    };
-    let b = Entity {
-        name: "B",
-        ..Default::default()
-    };
+    let world = World::init(1.0);
+    let default_position = world.new_position((0.0, 0.0).into());
+    let a = Entity::new("A", default_position.clone());
+    let b = Entity::new("B", default_position.clone());
 
     let entities = vec![
         Some(a.clone()),
@@ -541,7 +347,7 @@ fn test_gamestate_entities_grouped() {
 
     let gamestate = GameState {
         entities,
-        world: World::init(1.0),
+        world,
         last_update: Instant::now(),
     };
 
