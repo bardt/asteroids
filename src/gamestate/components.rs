@@ -3,6 +3,8 @@ use std::time::Duration;
 use cgmath::{Deg, Rotation3, Zero};
 use rand::Rng;
 
+use crate::light::LightUniform;
+
 use super::world::WorldPosition;
 use super::GameState;
 
@@ -112,4 +114,21 @@ impl Health {
 #[derive(Copy, Clone)]
 pub struct Lifetime {
     pub dies_after: Duration,
+}
+
+#[derive(Copy, Clone)]
+pub struct Light {
+    pub color: [f32; 3],
+    pub radius: f32,
+    pub z: f32,
+}
+
+impl Light {
+    pub fn uniform(&self, position: WorldPosition) -> LightUniform {
+        LightUniform::new(
+            position.to_vector2().extend(self.z).into(),
+            self.color,
+            self.radius,
+        )
+    }
 }

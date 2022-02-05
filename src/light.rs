@@ -12,8 +12,19 @@ pub struct LightUniform {
     pub position: [f32; 3],
     // Due to uniforms requiring 16 byte (4 float) spacing, we need to use a padding field here
     _padding: u32,
-    color: [f32; 3],
-    radius: f32,
+    pub color: [f32; 3],
+    pub radius: f32,
+}
+
+impl LightUniform {
+    pub fn new(position: [f32; 3], color: [f32; 3], radius: f32) -> Self {
+        Self {
+            position,
+            _padding: 0,
+            color,
+            radius,
+        }
+    }
 }
 
 pub struct LightRenderer {

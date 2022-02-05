@@ -303,12 +303,10 @@ impl State {
         self.camera_renderer
             .update_buffer(&self.queue, &self.gamestate.world.camera);
 
-        let old_position: cgmath::Vector3<_> = self.light_renderer.uniform.position.into();
-        self.light_renderer.uniform.position =
-            (cgmath::Quaternion::from_axis_angle((0.0, 0.0, 1.0).into(), cgmath::Deg(0.5))
-                * old_position)
-                .into();
-
+        match self.gamestate.light_uniforms().as_slice() {
+            &[first, ..] => self.light_renderer.uniform = first,
+            _ => (),
+        };
         self.light_renderer.update_buffer(&self.queue);
     }
 

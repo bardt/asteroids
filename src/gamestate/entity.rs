@@ -1,4 +1,4 @@
-use super::components::{self, Collision, Control, Health, Lifetime, Physics, Shape};
+use super::components::{self, Collision, Control, Health, Lifetime, Light, Physics, Shape};
 use super::world::WorldPosition;
 use crate::collision;
 use crate::instance::Instance;
@@ -19,6 +19,7 @@ pub struct Entity {
     pub control: Option<components::Control>,
     pub health: Option<components::Health>,
     pub lifetime: Option<components::Lifetime>,
+    pub light: Option<components::Light>,
 }
 
 impl Default for Entity {
@@ -36,6 +37,7 @@ impl Default for Entity {
             control: None,
             health: None,
             lifetime: None,
+            light: None,
         }
     }
 }
@@ -228,6 +230,11 @@ impl Entity {
             shape: Some(Shape::Sphere {
                 origin: position.to_zero(),
                 radius: 5.0,
+            }),
+            light: Some(Light {
+                color: [1., 0.7, 0.3],
+                radius: 30.,
+                z: 15.,
             }),
             collision: Some(Collision {
                 on_collision: |gamestate, this_id, other_ids| {

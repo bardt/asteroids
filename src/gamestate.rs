@@ -7,6 +7,7 @@ use crate::collision;
 use crate::debug;
 use crate::instance::InstanceRaw;
 
+use crate::light::LightUniform;
 use crate::{input::Input, instance::Instance};
 use cgmath::prelude::*;
 
@@ -14,6 +15,7 @@ use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::IntoParallelRefMutIterator;
 use rayon::iter::ParallelIterator;
 
+use std::convert::identity;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -159,6 +161,14 @@ impl GameState {
             .map(|(_name, instances)| instances)
             .flatten()
             .map(|instance| Instance::to_raw(instance))
+            .collect::<Vec<_>>()
+    }
+
+    pub fn light_uniforms(&self) -> Vec<LightUniform> {
+        self.entities
+            .par_iter()
+            .flatten()
+            .flat_map(|entity| entity.light.map(|light| light.uniform(entity.position())))
             .collect::<Vec<_>>()
     }
 
