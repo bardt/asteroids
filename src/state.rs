@@ -9,8 +9,6 @@ use crate::{
     model::{self, DrawModel, Model, Vertex},
     texture,
 };
-
-use cgmath::Rotation3;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use winit::event::{KeyboardInput, VirtualKeyCode};
 use winit::{event::WindowEvent, window::Window};
@@ -302,10 +300,7 @@ impl State {
         self.camera_renderer
             .update_buffer(&self.queue, &self.gamestate.world.camera);
 
-        match self.gamestate.light_uniforms().as_slice() {
-            &[first, ..] => self.light_renderer.uniform = first,
-            _ => (),
-        };
+        self.light_renderer.uniform = self.gamestate.light_uniforms();
         self.light_renderer.update_buffer(&self.queue);
     }
 

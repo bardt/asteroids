@@ -10,9 +10,15 @@ var<uniform> camera: Camera;
 struct Light {
     position: vec3<f32>;
     color: vec3<f32>;
+    radius: f32;
+};
+let max_lights: u32 = 16u;
+struct LightBuffer {
+    size: u32;
+    data: array<Light, 16>;
 };
 [[group(1), binding(0)]]
-var<uniform> light: Light;
+var<uniform> lights: LightBuffer;
 
 struct VertexInput {
     [[location(0)]] position: vec3<f32>;
@@ -27,6 +33,7 @@ struct VertexOutput {
 fn main(
     model: VertexInput,
 ) -> VertexOutput {
+    let light = lights.data[0];
     let scale = 0.25;
     var out: VertexOutput;
     out.clip_position = camera.view_proj * vec4<f32>(model.position * scale + light.position, 1.0);

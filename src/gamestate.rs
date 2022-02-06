@@ -164,6 +164,7 @@ impl GameState {
     }
 
     pub fn light_uniforms(&self) -> Vec<LightUniform> {
+        // @TODO: add lights for ghost instances
         self.entities
             .par_iter()
             .flatten()

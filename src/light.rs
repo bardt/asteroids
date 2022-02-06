@@ -1,34 +1,57 @@
-use wgpu::util::DeviceExt;
-
 use crate::{
     camera,
     model::{self, Model, Vertex},
     texture,
 };
+use wgpu::util::DeviceExt;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct LightUniform {
-    pub position: [f32; 3],
-    // Due to uniforms requiring 16 byte (4 float) spacing, we need to use a padding field here
-    _padding: u32,
-    pub color: [f32; 3],
-    pub radius: f32,
+    position: [f32; 4],
+    color: [f32; 4],
+    radius: [f32; 4],
 }
 
 impl LightUniform {
     pub fn new(position: [f32; 3], color: [f32; 3], radius: f32) -> Self {
         Self {
-            position,
-            _padding: 0,
-            color,
-            radius,
+            position: [position[0], position[1], position[2], 0.],
+            color: [color[0], color[1], color[2], 0.],
+            radius: [radius, 0., 0., 0.],
+        }
+    }
+
+    fn empty() -> Self {
+        Self::new([0.0, 0.0, 0.0], [0.0, 0.0, 0.0], 0.0)
+    }
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+struct LightBuffer {
+    data: [LightUniform; 16],
+    size: u32,
+    _padding: [u32; 3],
+}
+
+impl LightBuffer {
+    fn new(lights: &[LightUniform]) -> Self {
+        let mut data = [LightUniform::empty(); 16];
+        for i in 0..lights.len().min(16) {
+            data[i] = lights[i];
+        }
+
+        Self {
+            data,
+            size: lights.len() as u32,
+            _padding: [0, 0, 0],
         }
     }
 }
 
 pub struct LightRenderer {
-    pub uniform: LightUniform,
+    pub uniform: Vec<LightUniform>,
     buffer: wgpu::Buffer,
     pub bind_group: wgpu::BindGroup,
     pub bind_group_layout: wgpu::BindGroupLayout,
@@ -36,16 +59,11 @@ pub struct LightRenderer {
 
 impl LightRenderer {
     pub fn init(device: &wgpu::Device) -> Self {
-        let uniform = LightUniform {
-            position: [2.0, 2.0, 2.0],
-            _padding: 0,
-            color: [1.0, 0.7, 0.3],
-            radius: 10.0,
-        };
+        let uniform = vec![];
 
         let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Light Buffer"),
-            contents: bytemuck::cast_slice(&[uniform]),
+            contents: bytemuck::cast_slice(&[LightBuffer::new(&uniform)]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
@@ -81,7 +99,11 @@ impl LightRenderer {
     }
 
     pub fn update_buffer(&mut self, queue: &wgpu::Queue) {
-        queue.write_buffer(&self.buffer, 0, bytemuck::cast_slice(&[self.uniform]));
+        queue.write_buffer(
+            &self.buffer,
+            0,
+            bytemuck::cast_slice(&[LightBuffer::new(&self.uniform)]),
+        );
     }
 
     pub fn pipeline(
