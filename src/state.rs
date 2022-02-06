@@ -197,7 +197,7 @@ impl State {
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
-                entry_point: "main",
+                entry_point: "main_fragment",
                 targets: &[wgpu::ColorTargetState {
                     format: color_format,
                     blend: Some(wgpu::BlendState::REPLACE),
@@ -211,10 +211,8 @@ impl State {
                 cull_mode: Some(wgpu::Face::Back),
                 // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
                 polygon_mode: wgpu::PolygonMode::Fill,
-                // Requires Features::DEPTH_CLAMPING
-                clamp_depth: false,
-                // Requires Features::CONSERVATIVE_RASTERIZATION
                 conservative: false,
+                unclipped_depth: false,
             },
             depth_stencil: depth_format.map(|format| wgpu::DepthStencilState {
                 format,
@@ -229,6 +227,7 @@ impl State {
                 // Has to do with anti-aliasing
                 alpha_to_coverage_enabled: false,
             },
+            multiview: None,
         })
     }
 

@@ -1,4 +1,3 @@
-[[block]]
 struct Backdrop {
     color: vec4<f32>;
 };
@@ -22,6 +21,6 @@ fn main(
 }
 
 [[stage(fragment)]]
-fn main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
+fn main_fragment(in: VertexOutput) -> [[location(0)]] vec4<f32> {
     return backdrop.color;
 }

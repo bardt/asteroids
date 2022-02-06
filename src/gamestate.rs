@@ -15,7 +15,6 @@ use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::IntoParallelRefMutIterator;
 use rayon::iter::ParallelIterator;
 
-use std::convert::identity;
 use std::time::Duration;
 use std::time::Instant;
 

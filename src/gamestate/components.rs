@@ -107,7 +107,7 @@ pub struct Health {
 
 impl Health {
     pub fn deal_damage(&mut self, damage: usize) {
-        self.level = (self.level - damage).max(0);
+        self.level = (self.level as isize - damage as isize).max(0) as usize;
     }
 }
 
