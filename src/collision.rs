@@ -113,7 +113,7 @@ pub fn rectangle_contains_circle(
 
     let r_sqr = radius.powf(2.);
 
-    let center_inside = (left..right).contains(&x) && (bottom..top).contains(&y);
+    let center_inside = rectangle_contains_point(left_top, right_bottom, center);
 
     if center_inside {
         (left - x).powf(2.) > r_sqr
@@ -123,6 +123,18 @@ pub fn rectangle_contains_circle(
     } else {
         false
     }
+}
+
+pub fn rectangle_contains_point(
+    left_top: (f32, f32),
+    right_bottom: (f32, f32),
+    point: (f32, f32),
+) -> bool {
+    let (left, top) = left_top;
+    let (right, bottom) = right_bottom;
+    let (x, y) = point;
+
+    (left..right).contains(&x) && (bottom..top).contains(&y)
 }
 
 #[test]

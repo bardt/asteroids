@@ -2,7 +2,7 @@ pub mod components;
 mod entity;
 pub mod world;
 
-use crate::collision;
+use crate::collision::{self, rectangle_contains_point};
 
 use crate::debug;
 use crate::instance::InstanceRaw;
@@ -164,11 +164,34 @@ impl GameState {
     }
 
     pub fn light_uniforms(&self) -> Vec<LightUniform> {
-        // @TODO: add lights for ghost instances
         self.entities
             .par_iter()
             .flatten()
-            .flat_map(|entity| entity.light.map(|light| light.uniform(entity.position())))
+            .flat_map(|entity| {
+                entity.light.map(|light| {
+                    let mut left_top = self.world.left_top();
+                    let mut right_bottom = self.world.right_bottom();
+                    // Expending world rect so to fit lights which radius touches the visible space from the outside
+                    left_top.0 -= light.radius;
+                    left_top.1 += light.radius;
+                    right_bottom.0 += light.radius;
+                    right_bottom.1 -= light.radius;
+
+                    let instances = self.world.add_ghost_instances(entity);
+                    instances
+                        .par_iter()
+                        .filter(|instance| {
+                            rectangle_contains_point(
+                                left_top,
+                                right_bottom,
+                                instance.position.truncate().into(),
+                            )
+                        })
+                        .map(|instance| light.uniform(instance.position.truncate()))
+                        .collect::<Vec<_>>()
+                })
+            })
+            .flatten()
             .collect::<Vec<_>>()
     }
 

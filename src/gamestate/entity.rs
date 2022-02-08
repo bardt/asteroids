@@ -234,7 +234,6 @@ impl Entity {
     pub fn make_spaceship(position: WorldPosition, rotation_angle: f32) -> Entity {
         Entity {
             name: "Spaceship",
-
             position,
             rotation: cgmath::Quaternion::from_angle_z(Deg(rotation_angle)),
 
@@ -302,6 +301,11 @@ impl Entity {
             shape: Some(Shape::Sphere {
                 origin: position.to_zero(),
                 radius: 1.,
+            }),
+            light: Some(Light {
+                color: [1., 0.7, 0.3],
+                radius: 10.,
+                z: 0.,
             }),
             collision: Some(Collision {
                 on_collision: |gamestate, this_id, other_ids| {

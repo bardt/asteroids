@@ -34,6 +34,16 @@ impl World {
         self.camera = camera;
     }
 
+    pub fn left_top(&self) -> (f32, f32) {
+        let (w, h) = self.size;
+        (-w / 2., h / 2.)
+    }
+
+    pub fn right_bottom(&self) -> (f32, f32) {
+        let (w, h) = self.size;
+        (w / 2., -h / 2.)
+    }
+
     fn world_size_and_camera(aspect: f32) -> ((f32, f32), Camera) {
         let mut world_width = WORLD_SIZE_MIN;
         let mut world_height = WORLD_SIZE_MIN;

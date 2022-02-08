@@ -124,11 +124,7 @@ pub struct Light {
 }
 
 impl Light {
-    pub fn uniform(&self, position: WorldPosition) -> LightUniform {
-        LightUniform::new(
-            position.to_vector2().extend(self.z).into(),
-            self.color,
-            self.radius,
-        )
+    pub fn uniform(&self, position: cgmath::Vector2<f32>) -> LightUniform {
+        LightUniform::new(position.extend(self.z).into(), self.color, self.radius)
     }
 }
