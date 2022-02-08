@@ -49,8 +49,10 @@ struct VertexOutput {
     [[builtin(position)]] clip_position: vec4<f32>;
     [[location(0)]] tex_coords: vec2<f32>;
     [[location(1)]] tangent_position: vec3<f32>;
-    [[location(2)]] tangent_light_position: vec3<f32>;
-    [[location(3)]] tangent_view_position: vec3<f32>;
+    [[location(2)]] tangent_view_position: vec3<f32>;
+    [[location(3)]] world_tangent: vec3<f32>;
+    [[location(4)]] world_bitangent: vec3<f32>;
+    [[location(5)]] world_normal: vec3<f32>;
 };
 
 
@@ -89,7 +91,9 @@ fn main(
     out.tex_coords = model.tex_coords;
     out.tangent_position = tangent_matrix * world_position.xyz;
     out.tangent_view_position = tangent_matrix * camera.view_pos.xyz;
-    out.tangent_light_position = tangent_matrix * light.position.xyz;
+    out.world_tangent = world_tangent;
+    out.world_bitangent = world_bitangent;
+    out.world_normal = world_normal;
     return out;
 }
 
@@ -98,29 +102,41 @@ fn main_fragment(in: VertexOutput) -> [[location(0)]] vec4<f32> {
     let object_color: vec4<f32> = textureSample(t_diffuse, s_diffuse, in.tex_coords);
     let object_normal: vec4<f32> = textureSample(t_normal, s_normal, in.tex_coords);
 
-    let light = lights.data[0];
-
     let tangent_normal = object_normal.xyz * 2.0 - 1.0;
-    let light_dir = normalize(in.tangent_light_position - in.tangent_position);
-    let light_distance = length(in.tangent_light_position - in.tangent_position);
-    let light_intencity = smoothStep(light.radius[0], 0.0, light_distance);
-    let view_dir = normalize(in.tangent_view_position - in.tangent_position);
-    let half_dir = normalize(view_dir + light_dir);
-
+    let tangent_matrix = transpose(mat3x3<f32>(
+        in.world_tangent,
+        in.world_bitangent,
+        in.world_normal,
+    ));
 
     let ambient_strength = 0.05;
-    let ambient_color = light.color.xyz * ambient_strength;
+    var total_lighting_color : vec3<f32> = vec3<f32>(1.0, 1.0, 1.0) * ambient_strength;
 
+    var i: u32 = 0u;
+    loop {
+        if (i >= min(lights.size, max_lights)) {
+            break;
+        }
+        let light = lights.data[i];
 
-    let diffuse_strength = max(dot(tangent_normal, light_dir) * light_intencity, 0.0);
-    let diffuse_color = light.color.xyz * diffuse_strength;
+        let tangent_light_position = tangent_matrix * light.position.xyz;
+        
+        let light_dir = normalize(tangent_light_position - in.tangent_position);
+        let light_distance = length(tangent_light_position - in.tangent_position);
+        let light_intencity = smoothStep(light.radius[0], 0.0, light_distance);
+        let view_dir = normalize(in.tangent_view_position - in.tangent_position);
+        let half_dir = normalize(view_dir + light_dir);
 
-    
-    let specular_strength = pow(max(dot(tangent_normal, half_dir) * light_intencity, 0.0), 32.0);
-    let specular_color = light.color.xyz * specular_strength;
+        let diffuse_strength = max(dot(tangent_normal, light_dir) * light_intencity, 0.0);
+        let diffuse_color = light.color.xyz * diffuse_strength;
 
+        let specular_strength = pow(max(dot(tangent_normal, half_dir) * light_intencity, 0.0), 32.0);
 
-    let total_lighting_color = ambient_color + diffuse_color + specular_color;
+        total_lighting_color = total_lighting_color + (diffuse_strength + specular_strength) * light.color.xyz;
+        continuing {
+            i = i + 1u;
+        }
+    }
 
     let result_color = total_lighting_color * object_color.xyz;
     return vec4<f32>(result_color, object_color.a);

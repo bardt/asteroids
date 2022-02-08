@@ -99,11 +99,8 @@ impl LightRenderer {
     }
 
     pub fn update_buffer(&mut self, queue: &wgpu::Queue) {
-        queue.write_buffer(
-            &self.buffer,
-            0,
-            bytemuck::cast_slice(&[LightBuffer::new(&self.uniform)]),
-        );
+        let buffer_uniform = &[LightBuffer::new(&self.uniform)];
+        queue.write_buffer(&self.buffer, 0, bytemuck::cast_slice(buffer_uniform));
     }
 
     pub fn pipeline(

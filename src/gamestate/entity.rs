@@ -139,6 +139,11 @@ impl Entity {
                 origin: position.to_zero(),
                 radius: 1.0,
             }),
+            light: Some(Light {
+                color: [0., 0.3, 0.7],
+                radius: 5.,
+                z: 5.,
+            }),
             collision: Some(Collision {
                 on_collision: |gamestate, this_id, _other_ids| gamestate.kill(this_id),
             }),
@@ -155,6 +160,11 @@ impl Entity {
             shape: Some(Shape::Sphere {
                 origin: position.to_zero(),
                 radius: 3.0,
+            }),
+            light: Some(Light {
+                color: [0., 0.3, 0.7],
+                radius: 10.,
+                z: 10.,
             }),
             collision: Some(Collision {
                 on_collision: |gamestate, this_id, _other_ids| {
@@ -192,6 +202,11 @@ impl Entity {
             shape: Some(Shape::Sphere {
                 origin: position.to_zero(),
                 radius: 5.0,
+            }),
+            light: Some(Light {
+                color: [0., 0.3, 0.7],
+                radius: 15.,
+                z: 15.,
             }),
             collision: Some(Collision {
                 on_collision: |gamestate, this_id, _other_ids| {
