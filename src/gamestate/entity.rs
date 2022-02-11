@@ -1,6 +1,7 @@
-use super::components::{self, Collision, Control, Health, Lifetime, Light, Physics, Shape};
+use super::components::{self, Collision, Control, Health, Lifetime, Light, Physics};
+use super::geometry::{self, Shape};
 use super::world::WorldPosition;
-use crate::collision;
+
 use crate::instance::Instance;
 use cgmath::{prelude::*, Deg};
 use cgmath::{InnerSpace, Zero};
@@ -13,7 +14,7 @@ pub struct Entity {
     pub rotation: cgmath::Quaternion<f32>,
     position: WorldPosition,
     entered_world: bool, // @TODO: find a way to set it whenever position changes
-    pub shape: Option<components::Shape>,
+    pub shape: Option<geometry::Shape>,
     pub physics: Option<components::Physics>,
     pub collision: Option<components::Collision>,
     pub control: Option<components::Control>,
@@ -74,7 +75,7 @@ impl Entity {
     }
 
     pub fn update_physics(&mut self, dtime: &Duration) {
-        let speeds = if let Some(physics) = &mut self.physics {
+        let speeds = if let Some(ref mut physics) = self.physics {
             // Limit maximum speed
             if physics.linear_speed.magnitude2() > 0. {
                 let new_magnitude = physics
@@ -111,16 +112,12 @@ impl Entity {
         self.entered_world = self.entered_world
             || if let Some(shape) = self.shape {
                 match shape {
-                    Shape::Sphere { origin, radius } => {
-                        let (w, h) = self.position.world_size();
-                        let wh = w / 2.;
-                        let hh = h / 2.;
-                        let left_top = (-wh, hh);
-                        let right_bottom = (wh, -hh);
+                    Shape::Circle { origin, radius } => {
+                        let rect = self.position.world_rect();
                         let center = origin
                             .translate_unsafe(self.position.to_vector2())
                             .to_tuple();
-                        collision::rectangle_contains_circle(left_top, right_bottom, center, radius)
+                        rect.contains_circle(center, radius)
                     }
                 }
             } else {
@@ -135,7 +132,7 @@ impl Entity {
             position,
             rotation: cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), Deg(0.0)),
             physics: Some(Physics::random(10., 100.)),
-            shape: Some(Shape::Sphere {
+            shape: Some(Shape::Circle {
                 origin: position.to_zero(),
                 radius: 1.0,
             }),
@@ -157,7 +154,7 @@ impl Entity {
             position,
             rotation: cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), Deg(0.0)),
             physics: Some(Physics::random(10., 100.)),
-            shape: Some(Shape::Sphere {
+            shape: Some(Shape::Circle {
                 origin: position.to_zero(),
                 radius: 3.0,
             }),
@@ -199,7 +196,7 @@ impl Entity {
             position,
             rotation: cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), Deg(0.0)),
             physics: Some(Physics::random(5., 100.)),
-            shape: Some(Shape::Sphere {
+            shape: Some(Shape::Circle {
                 origin: position.to_zero(),
                 radius: 5.0,
             }),
@@ -241,7 +238,7 @@ impl Entity {
                 max_linear_speed: 60.,
                 ..Default::default()
             }),
-            shape: Some(Shape::Sphere {
+            shape: Some(Shape::Circle {
                 origin: position.to_zero(),
                 radius: 5.0,
             }),
@@ -298,7 +295,7 @@ impl Entity {
             lifetime: Some(Lifetime {
                 dies_after: Duration::from_secs(1),
             }),
-            shape: Some(Shape::Sphere {
+            shape: Some(Shape::Circle {
                 origin: position.to_zero(),
                 radius: 1.,
             }),

@@ -1,4 +1,5 @@
 use super::entity::Entity;
+use super::geometry::Rect;
 use crate::{camera::Camera, instance::Instance};
 use cgmath::prelude::*;
 use cgmath::Vector2;
@@ -15,7 +16,6 @@ pub struct World {
 impl World {
     pub fn init(aspect: f32) -> Self {
         let (size, camera) = Self::world_size_and_camera(aspect);
-
         Self { size, camera }
     }
 
@@ -26,22 +26,12 @@ impl World {
         }
     }
 
-    pub fn _resize(&mut self, config: &wgpu::SurfaceConfiguration) {
-        let aspect = config.width as f32 / config.height as f32;
-        let (size, camera) = Self::world_size_and_camera(aspect);
-
-        self.size = size;
-        self.camera = camera;
-    }
-
-    pub fn left_top(&self) -> (f32, f32) {
+    pub fn rect(&self) -> Rect {
         let (w, h) = self.size;
-        (-w / 2., h / 2.)
-    }
-
-    pub fn right_bottom(&self) -> (f32, f32) {
-        let (w, h) = self.size;
-        (w / 2., -h / 2.)
+        Rect {
+            left_top: (-w / 2., h / 2.),
+            right_bottom: (w / 2., -h / 2.),
+        }
     }
 
     fn world_size_and_camera(aspect: f32) -> ((f32, f32), Camera) {
@@ -132,8 +122,16 @@ impl WorldPosition {
         (x, y)
     }
 
-    pub fn world_size(&self) -> (f32, f32) {
-        self.world_size
+    pub fn world_rect(&self) -> Rect {
+        let (w, h) = self.world_size;
+        let wh = w / 2.;
+        let hh = h / 2.;
+        let left_top = (-wh, hh);
+        let right_bottom = (wh, -hh);
+        Rect {
+            left_top,
+            right_bottom,
+        }
     }
 
     pub fn distance(&self, other: &Self) -> f32 {

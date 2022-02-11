@@ -1,4 +1,4 @@
-use crate::gamestate::components::Shape;
+use super::geometry::Shape;
 
 pub(crate) fn find_collisions(shapes: Vec<Option<Shape>>) -> Vec<Vec<usize>> {
     let mut total_collisions = vec![];
@@ -39,11 +39,11 @@ fn test_find_collisions() {
     assert_eq!(find_collisions(vec![]), empty);
     assert_eq!(
         find_collisions(vec![
-            Some(Shape::Sphere {
+            Some(Shape::Circle {
                 origin: origin((0.0, 0.0)),
                 radius: 20.
             }),
-            Some(Shape::Sphere {
+            Some(Shape::Circle {
                 origin: origin((40.0, 0.0)),
                 radius: 10.
             })
@@ -52,15 +52,15 @@ fn test_find_collisions() {
     );
     assert_eq!(
         find_collisions(vec![
-            Some(Shape::Sphere {
+            Some(Shape::Circle {
                 origin: origin((0.0, 0.0)),
                 radius: 20.
             }),
-            Some(Shape::Sphere {
+            Some(Shape::Circle {
                 origin: origin((40.0, 0.0)),
                 radius: 10.
             }),
-            Some(Shape::Sphere {
+            Some(Shape::Circle {
                 origin: origin((-20.0, 0.0)),
                 radius: 20.
             })
@@ -70,15 +70,15 @@ fn test_find_collisions() {
     assert_eq!(
         find_collisions(vec![
             None,
-            Some(Shape::Sphere {
+            Some(Shape::Circle {
                 origin: origin((0.0, 0.0)),
                 radius: 20.
             }),
-            Some(Shape::Sphere {
+            Some(Shape::Circle {
                 origin: origin((40.0, 0.0)),
                 radius: 10.
             }),
-            Some(Shape::Sphere {
+            Some(Shape::Circle {
                 origin: origin((-20.0, 0.0)),
                 radius: 20.
             })
@@ -88,64 +88,15 @@ fn test_find_collisions() {
     assert_eq!(
         find_collisions(vec![
             None,
-            Some(Shape::Sphere {
+            Some(Shape::Circle {
                 origin: origin((0.0, -40.0)),
                 radius: 15.
             }),
-            Some(Shape::Sphere {
+            Some(Shape::Circle {
                 origin: origin((0.0, 40.0)),
                 radius: 15.
             }),
         ]),
         vec![vec![1_usize, 2_usize]]
-    );
-}
-
-pub fn rectangle_contains_circle(
-    left_top: (f32, f32),
-    right_bottom: (f32, f32),
-    center: (f32, f32),
-    radius: f32,
-) -> bool {
-    let (left, top) = left_top;
-    let (right, bottom) = right_bottom;
-    let (x, y) = center;
-
-    let r_sqr = radius.powf(2.);
-
-    let center_inside = rectangle_contains_point(left_top, right_bottom, center);
-
-    if center_inside {
-        (left - x).powf(2.) > r_sqr
-            && (right - x).powf(2.) > r_sqr
-            && (top - y).powf(2.) > r_sqr
-            && (bottom - y).powf(2.) > r_sqr
-    } else {
-        false
-    }
-}
-
-pub fn rectangle_contains_point(
-    left_top: (f32, f32),
-    right_bottom: (f32, f32),
-    point: (f32, f32),
-) -> bool {
-    let (left, top) = left_top;
-    let (right, bottom) = right_bottom;
-    let (x, y) = point;
-
-    (left..right).contains(&x) && (bottom..top).contains(&y)
-}
-
-#[test]
-fn test_rectangle_contains_circle() {
-    assert_eq!(
-        rectangle_contains_circle((-50., 50.), (50., -50.), (-40., 0.), 9.),
-        true
-    );
-
-    assert_eq!(
-        rectangle_contains_circle((-50., 50.), (50., -50.), (-40., 0.), 11.),
-        false
     );
 }

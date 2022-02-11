@@ -5,40 +5,11 @@ use rand::Rng;
 
 use crate::light::LightUniform;
 
-use super::world::WorldPosition;
 use super::GameState;
 
 #[derive(Clone, Copy)]
 pub struct Collision {
     pub on_collision: fn(&mut GameState, this_id: usize, other_ids: &[usize]),
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum Shape {
-    Sphere { origin: WorldPosition, radius: f32 },
-}
-
-impl Shape {
-    pub(crate) fn overlaps(&self, another_shape: &Shape) -> bool {
-        match (self, another_shape) {
-            (
-                Shape::Sphere { origin, radius },
-                Shape::Sphere {
-                    origin: other_origin,
-                    radius: other_radius,
-                },
-            ) => WorldPosition::distance(origin, other_origin) < (radius + other_radius),
-        }
-    }
-
-    pub(crate) fn translate(&self, position: cgmath::Vector2<f32>) -> Shape {
-        match *self {
-            Shape::Sphere { origin, radius } => Shape::Sphere {
-                origin: origin.translate(position),
-                radius,
-            },
-        }
-    }
 }
 
 #[derive(Clone, Copy)]

@@ -1,8 +1,8 @@
+mod collision;
 pub mod components;
 mod entity;
+mod geometry;
 pub mod world;
-
-use crate::collision::{self, rectangle_contains_point};
 
 use crate::debug;
 use crate::instance::InstanceRaw;
@@ -169,24 +169,14 @@ impl GameState {
             .flatten()
             .flat_map(|entity| {
                 entity.light.map(|light| {
-                    let mut left_top = self.world.left_top();
-                    let mut right_bottom = self.world.right_bottom();
+                    let mut rect = self.world.rect();
                     // Expending world rect so to fit lights which radius touches the visible space from the outside
-                    left_top.0 -= light.radius;
-                    left_top.1 += light.radius;
-                    right_bottom.0 += light.radius;
-                    right_bottom.1 -= light.radius;
+                    rect.expand(light.radius);
 
                     let instances = self.world.add_ghost_instances(entity);
                     instances
                         .par_iter()
-                        .filter(|instance| {
-                            rectangle_contains_point(
-                                left_top,
-                                right_bottom,
-                                instance.position.truncate().into(),
-                            )
-                        })
+                        .filter(|instance| rect.contains_point(instance.position.truncate().into()))
                         .map(|instance| light.uniform(instance.position.truncate()))
                         .collect::<Vec<_>>()
                 })
@@ -291,9 +281,7 @@ impl GameState {
             })
             .collect::<Vec<_>>();
 
-        let collisions = collision::find_collisions(shapes);
-
-        for collision_group in collisions {
+        for collision_group in collision::find_collisions(shapes) {
             for this_id in &collision_group {
                 let other_ids = &collision_group
                     .iter()
@@ -319,18 +307,16 @@ impl GameState {
         let mut to_kill = vec![];
         let dtime = self.delta_time();
         for (id, option_entity) in self.entities.iter_mut().enumerate() {
-            match option_entity {
-                Some(entity) => match &mut entity.lifetime {
-                    Some(lifetime) => {
-                        if lifetime.dies_after >= dtime {
-                            lifetime.dies_after -= dtime;
-                        } else {
-                            to_kill.push(id);
-                        }
-                    }
-                    None => (),
-                },
-                None => (),
+            if let Some(Entity {
+                lifetime: Some(ref mut lifetime),
+                ..
+            }) = option_entity
+            {
+                if lifetime.dies_after >= dtime {
+                    lifetime.dies_after -= dtime;
+                } else {
+                    to_kill.push(id);
+                }
             }
         }
 
