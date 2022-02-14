@@ -1,5 +1,9 @@
 use crate::backdrop::BackdropRenderer;
+use crate::font::FontRenderer;
+use crate::gamestate::geometry::Rect;
 use crate::light::{self, LightRenderer};
+use crate::model::Material;
+use crate::texture::{Texture, TextureRenderer};
 use crate::{
     camera::{self, CameraRenderer},
     debug,
@@ -29,6 +33,10 @@ pub struct State {
     light_render_pipeline: wgpu::RenderPipeline,
     backdrop_renderer: BackdropRenderer,
     backdrop_render_pipeline: wgpu::RenderPipeline,
+    texture_renderer: TextureRenderer,
+    texture_render_pipeline: wgpu::RenderPipeline,
+    textures: Vec<(wgpu::Buffer, Material)>,
+    font_renderer: FontRenderer,
     gamestate: GameState,
     input: Input,
 }
@@ -93,8 +101,8 @@ impl State {
             .update_view_proj(&gamestate.world.camera);
 
         let light_renderer = LightRenderer::init(&device);
-
         let backdrop_renderer = BackdropRenderer::init(&device);
+        let texture_renderer = TextureRenderer::init(&device);
 
         // DEPTH
 
@@ -142,6 +150,7 @@ impl State {
 
         let light_render_pipeline = light_renderer.pipeline(&device, &config, &camera_renderer);
         let backdrop_render_pipeline = backdrop_renderer.pipeline(&device, &config);
+        let texture_render_pipeline = texture_renderer.pipeline(&device, &config);
 
         let res_dir = std::path::Path::new(env!("OUT_DIR")).join("res");
         let obj_model = model::Model::load(
@@ -153,6 +162,8 @@ impl State {
         .unwrap();
 
         let input = Input::new();
+
+        let font_renderer = FontRenderer::load();
 
         Self {
             surface,
@@ -169,8 +180,12 @@ impl State {
             light_render_pipeline,
             backdrop_renderer,
             backdrop_render_pipeline,
+            texture_renderer,
+            texture_render_pipeline,
             instance_buffer,
             instance_buffer_size,
+            textures: vec![],
+            font_renderer,
             input,
         }
     }
@@ -271,6 +286,44 @@ impl State {
             .physics_system()
             .collision_system()
             .submit();
+
+        let diffuse_texture = Texture::from_image(
+            &self.device,
+            &self.queue,
+            &self
+                .font_renderer
+                .render("Hello, commander!", 32., (150, 0, 0)),
+            Some("Font texture"),
+            false,
+        )
+        .unwrap();
+        let text_material = Material::from_texture(&self.device, &self.queue, "", diffuse_texture);
+        if let Ok(text_material) = text_material {
+            match &self.textures[..] {
+                [first, ..] => {
+                    TextureRenderer::update_vertex_buffer(
+                        &first.0,
+                        &Rect {
+                            left_top: (-1., 1.),
+                            right_bottom: (1., 0.),
+                        },
+                        &self.queue,
+                    );
+                }
+                [] => {
+                    let vertex_buffer = TextureRenderer::init_vertex_buffer(&self.device);
+                    TextureRenderer::update_vertex_buffer(
+                        &vertex_buffer,
+                        &Rect {
+                            left_top: (-1., 1.),
+                            right_bottom: (1., 0.),
+                        },
+                        &self.queue,
+                    );
+                    self.textures.push((vertex_buffer, text_material));
+                }
+            }
+        }
 
         let instance_data = self.gamestate.instances_raw();
         let buffer_contents = bytemuck::cast_slice(&instance_data) as &[u8];
@@ -405,6 +458,12 @@ impl State {
                     &self.light_renderer.bind_group,
                 );
                 offset += size;
+            }
+
+            render_pass.set_pipeline(&self.texture_render_pipeline);
+            for (vertex_buffer, material) in &self.textures {
+                self.texture_renderer
+                    .draw(vertex_buffer, material, &mut render_pass);
             }
         }
 

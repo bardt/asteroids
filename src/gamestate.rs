@@ -1,7 +1,7 @@
 mod collision;
 pub mod components;
 mod entity;
-mod geometry;
+pub mod geometry;
 pub mod world;
 
 use crate::debug;

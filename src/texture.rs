@@ -1,6 +1,12 @@
 use anyhow::*;
 use image::GenericImageView;
 use std::path::Path;
+use wgpu::util::DeviceExt;
+
+use crate::{
+    gamestate::geometry::Rect,
+    model::{Material, Vertex},
+};
 
 pub struct Texture {
     pub texture: wgpu::Texture,
@@ -127,6 +133,25 @@ impl Texture {
         }
     }
 
+    pub fn create_default_normal(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        diffuse_texture: &Self,
+    ) -> Result<Self> {
+        // If no normal texture is set, use a default one, matching diffuse texture in size
+        let mut raw_img =
+            image::RgbImage::new(diffuse_texture.size.width, diffuse_texture.size.height);
+
+        for x in 0..diffuse_texture.size.width {
+            for y in 0..diffuse_texture.size.height {
+                raw_img.put_pixel(x, y, image::Rgb([128, 128, 255]));
+            }
+        }
+
+        let img = image::DynamicImage::ImageRgb8(raw_img);
+        Self::from_image(device, queue, &img, None, true)
+    }
+
     pub fn load<P: AsRef<Path>>(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
@@ -179,5 +204,172 @@ impl Texture {
                 },
             ],
         }
+    }
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct TextureVertex {
+    position: [f32; 3],
+    tex_coords: [f32; 2],
+}
+
+impl Vertex for TextureVertex {
+    fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
+        use std::mem;
+        wgpu::VertexBufferLayout {
+            array_stride: mem::size_of::<TextureVertex>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &[
+                wgpu::VertexAttribute {
+                    offset: 0,
+                    shader_location: 0,
+                    format: wgpu::VertexFormat::Float32x3,
+                },
+                wgpu::VertexAttribute {
+                    offset: mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
+                    shader_location: 1,
+                    format: wgpu::VertexFormat::Float32x2,
+                },
+            ],
+        }
+    }
+}
+
+pub struct TextureRenderer {
+    index_buffer: wgpu::Buffer,
+    bind_group_layout: wgpu::BindGroupLayout,
+}
+
+impl TextureRenderer {
+    pub fn init(device: &wgpu::Device) -> Self {
+        let indices: Vec<u32> = vec![0, 2, 1, 0, 3, 2];
+        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Texture Index Buffer"),
+            contents: bytemuck::cast_slice(&indices),
+            usage: wgpu::BufferUsages::INDEX,
+        });
+        let bind_group_layout = device.create_bind_group_layout(&Texture::desc());
+
+        Self {
+            index_buffer,
+            bind_group_layout,
+        }
+    }
+
+    pub fn pipeline(
+        &self,
+        device: &wgpu::Device,
+        surface_config: &wgpu::SurfaceConfiguration,
+    ) -> wgpu::RenderPipeline {
+        let shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
+            label: Some("Texture Shader"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("texture.wgsl").into()),
+        });
+
+        let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("Texture Render Pipeline Layout"),
+            bind_group_layouts: &[&self.bind_group_layout],
+            push_constant_ranges: &[],
+        });
+
+        device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Texture Render Pipeline"),
+            layout: Some(&layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: "main",
+                buffers: &[TextureVertex::desc()],
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: "main_fragment",
+                targets: &[wgpu::ColorTargetState {
+                    format: surface_config.format,
+                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                    write_mask: wgpu::ColorWrites::ALL,
+                }],
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: Some(wgpu::Face::Back),
+                // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
+                polygon_mode: wgpu::PolygonMode::Fill,
+                conservative: false,
+                unclipped_depth: false,
+            },
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: Texture::DEPTH_FORMAT,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::LessEqual,
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
+            }),
+            multisample: wgpu::MultisampleState {
+                count: 1,
+                mask: !0,
+                // Has to do with anti-aliasing
+                alpha_to_coverage_enabled: false,
+            },
+            multiview: None,
+        })
+    }
+
+    pub fn init_vertex_buffer(device: &wgpu::Device) -> wgpu::Buffer {
+        let vert_placeholder = [TextureVertex {
+            position: [0.0, 0.0, 0.0],
+            tex_coords: [0.0, 0.0],
+        }; 4];
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Texture Vertex buffer"),
+            contents: bytemuck::cast_slice(&vert_placeholder),
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+        });
+        vertex_buffer
+    }
+
+    pub fn update_vertex_buffer(vertex_buffer: &wgpu::Buffer, rect: &Rect, queue: &wgpu::Queue) {
+        let (left, top) = rect.left_top;
+        let (right, bottom) = rect.right_bottom;
+        let vertex_data = [
+            TextureVertex {
+                position: [left, bottom, 1.0],
+                tex_coords: [0.0, 1.0],
+            },
+            TextureVertex {
+                position: [left, top, 1.0],
+                tex_coords: [0.0, 0.0],
+            },
+            TextureVertex {
+                position: [right, top, 1.0],
+                tex_coords: [1.0, 0.0],
+            },
+            TextureVertex {
+                position: [right, bottom, 1.0],
+                tex_coords: [1.0, 1.0],
+            },
+        ];
+
+        queue.write_buffer(
+            vertex_buffer,
+            0,
+            bytemuck::cast_slice(&vertex_data) as &[u8],
+        );
+    }
+
+    pub fn draw<'a, 'b>(
+        &'b self,
+        vertex_buffer: &'b wgpu::Buffer,
+        material: &'b Material,
+        render_pass: &mut wgpu::RenderPass<'a>,
+    ) where
+        'b: 'a,
+    {
+        render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
+        render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+        render_pass.set_bind_group(0, &material.bind_group, &[]);
+        render_pass.draw_indexed(0..6, 0, 0..1);
     }
 }

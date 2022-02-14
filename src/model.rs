@@ -110,6 +110,23 @@ impl Material {
             bind_group,
         }
     }
+
+    pub fn from_texture(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        name: &str,
+        diffuse_texture: texture::Texture,
+    ) -> Result<Self> {
+        let normal_texture =
+            texture::Texture::create_default_normal(device, queue, &diffuse_texture)?;
+        Ok(Self::new(
+            device,
+            name,
+            diffuse_texture,
+            normal_texture,
+            &device.create_bind_group_layout(&texture::Texture::desc()),
+        ))
+    }
 }
 
 pub struct Model {
@@ -149,20 +166,7 @@ impl Model {
                 )?;
 
                 let normal_texture = if &mat.normal_texture == "" {
-                    // If no normal texture is set, use a default one, matching diffuse texture in size
-                    let mut raw_img = image::RgbImage::new(
-                        diffuse_texture.size.width,
-                        diffuse_texture.size.height,
-                    );
-
-                    for x in 0..diffuse_texture.size.width {
-                        for y in 0..diffuse_texture.size.height {
-                            raw_img.put_pixel(x, y, image::Rgb([128, 128, 255]));
-                        }
-                    }
-
-                    let img = image::DynamicImage::ImageRgb8(raw_img);
-                    texture::Texture::from_image(device, queue, &img, None, true)?
+                    texture::Texture::create_default_normal(device, queue, &diffuse_texture)?
                 } else {
                     texture::Texture::load(
                         device,

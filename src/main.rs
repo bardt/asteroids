@@ -2,6 +2,7 @@ static MODE: Mode = Mode::Dev;
 
 mod backdrop;
 mod camera;
+mod font;
 mod gamestate;
 mod input;
 mod instance;
