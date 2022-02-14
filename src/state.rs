@@ -3,7 +3,7 @@ use crate::font::FontRenderer;
 use crate::gamestate::geometry::Rect;
 use crate::light::{self, LightRenderer};
 use crate::model::Material;
-use crate::texture::{Texture, TextureRenderer};
+use crate::texture::TextureRenderer;
 use crate::{
     camera::{self, CameraRenderer},
     debug,
@@ -35,7 +35,7 @@ pub struct State {
     backdrop_render_pipeline: wgpu::RenderPipeline,
     texture_renderer: TextureRenderer,
     texture_render_pipeline: wgpu::RenderPipeline,
-    textures: Vec<(wgpu::Buffer, Material)>,
+    textures: Vec<(wgpu::Buffer, Option<Material>)>,
     font_renderer: FontRenderer,
     gamestate: GameState,
     input: Input,
@@ -287,41 +287,74 @@ impl State {
             .collision_system()
             .submit();
 
-        let diffuse_texture = Texture::from_image(
-            &self.device,
-            &self.queue,
-            &self
-                .font_renderer
-                .render("Hello, commander!", 32., (150, 0, 0)),
-            Some("Font texture"),
-            false,
-        )
-        .unwrap();
-        let text_material = Material::from_texture(&self.device, &self.queue, "", diffuse_texture);
-        if let Ok(text_material) = text_material {
-            match &self.textures[..] {
-                [first, ..] => {
-                    TextureRenderer::update_vertex_buffer(
-                        &first.0,
-                        &Rect {
-                            left_top: (-1., 1.),
-                            right_bottom: (1., 0.),
-                        },
-                        &self.queue,
-                    );
-                }
-                [] => {
-                    let vertex_buffer = TextureRenderer::init_vertex_buffer(&self.device);
-                    TextureRenderer::update_vertex_buffer(
-                        &vertex_buffer,
-                        &Rect {
-                            left_top: (-1., 1.),
-                            right_bottom: (1., 0.),
-                        },
-                        &self.queue,
-                    );
-                    self.textures.push((vertex_buffer, text_material));
-                }
+        // UI
+        {
+            let padding = (10., 10.);
+            let (world_width, world_height) = self.gamestate.world.size;
+            let world_aspect = world_width / world_height;
+
+            let mut text_materials = if let crate::Mode::Debug = crate::MODE {
+                self.gamestate
+                    .entities_grouped()
+                    .iter()
+                    .map(|(name, entities)| {
+                        self.font_renderer.render_material(
+                            &self.device,
+                            &self.queue,
+                            format!("{:?}: {:?}", name, entities.len()).as_str(),
+                            40.,
+                            padding,
+                            (150, 150, 0),
+                        )
+                    })
+                    .collect::<Vec<_>>()
+            } else {
+                vec![]
+            };
+
+            text_materials.push(self.font_renderer.render_material(
+                &self.device,
+                &self.queue,
+                format!("Score: {:?}", self.gamestate.score()).as_str(),
+                20.,
+                padding,
+                (150, 150, 0),
+            ));
+
+            text_materials.push(self.font_renderer.render_material(
+                &self.device,
+                &self.queue,
+                format!("Asteroids: {:?}", self.gamestate.asteroids_count()).as_str(),
+                20.,
+                padding,
+                (150, 150, 0),
+            ));
+
+            self.textures.resize_with(text_materials.len(), || {
+                let vertex_buffer = TextureRenderer::init_vertex_buffer(&self.device);
+                (vertex_buffer, None)
+            });
+
+            let line_height = 0.2;
+
+            for (index, text_material) in text_materials.into_iter().enumerate().collect::<Vec<_>>()
+            {
+                let count_rect = Rect {
+                    left_top: (-1., 1. - (index as f32) * line_height),
+                    right_bottom: (
+                        -1. + text_material.diffuse_texture.size.width as f32
+                            / text_material.diffuse_texture.size.height as f32
+                            / world_aspect
+                            * line_height,
+                        1. - (index + 1) as f32 * line_height,
+                    ),
+                };
+                TextureRenderer::update_vertex_buffer(
+                    &self.textures[index].0,
+                    &count_rect,
+                    &self.queue,
+                );
+                self.textures[index].1 = Some(text_material);
             }
         }
 
@@ -462,8 +495,10 @@ impl State {
 
             render_pass.set_pipeline(&self.texture_render_pipeline);
             for (vertex_buffer, material) in &self.textures {
-                self.texture_renderer
-                    .draw(vertex_buffer, material, &mut render_pass);
+                if let Some(material) = material {
+                    self.texture_renderer
+                        .draw(vertex_buffer, material, &mut render_pass);
+                }
             }
         }
 

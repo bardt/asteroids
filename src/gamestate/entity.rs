@@ -312,6 +312,7 @@ impl Entity {
                         match gamestate.get_entity(*id) {
                             Some(other) => {
                                 if other.name.starts_with("Asteroid") {
+                                    gamestate.score += 1;
                                     should_kill_self = true;
                                 }
                             }

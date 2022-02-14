@@ -1,6 +1,8 @@
 use image::{DynamicImage, Rgba};
 use rusttype::{point, Font, Scale};
 
+use crate::{model::Material, texture::Texture};
+
 pub struct FontRenderer {
     font: Font<'static>,
 }
@@ -13,14 +15,22 @@ impl FontRenderer {
         Self { font }
     }
 
-    pub fn render(&self, text: &str, font_size: f32, color: (u8, u8, u8)) -> DynamicImage {
+    pub fn render_material(
+        &self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        text: &str,
+        font_size: f32,
+        padding: (f32, f32),
+        color: (u8, u8, u8),
+    ) -> Material {
         let scale = Scale::uniform(font_size);
         let v_metrics = self.font.v_metrics(scale);
 
         // Layout in a line with 20 pixels padding
         let glyphs = self
             .font
-            .layout(text, scale, point(20.0, 20.0 + v_metrics.ascent))
+            .layout(text, scale, point(padding.0, padding.1 + v_metrics.ascent))
             .collect::<Vec<_>>();
 
         // Layout size
@@ -39,7 +49,11 @@ impl FontRenderer {
             (max_x - min_x) as u32
         };
 
-        let mut image = DynamicImage::new_rgba8(glyphs_width + 40, glyphs_height + 40).to_rgba8();
+        let mut image = DynamicImage::new_rgba8(
+            glyphs_width + (padding.0 * 2.) as u32,
+            glyphs_height + (padding.1 * 2.) as u32,
+        )
+        .to_rgba8();
 
         for glyph in glyphs {
             if let Some(bounding_box) = glyph.pixel_bounding_box() {
@@ -53,6 +67,16 @@ impl FontRenderer {
             }
         }
 
-        DynamicImage::ImageRgba8(image)
+        let diffuse_texture = Texture::from_image(
+            device,
+            queue,
+            &DynamicImage::ImageRgba8(image),
+            Some("Font texture"),
+            false,
+        )
+        .unwrap();
+        let text_material = Material::from_texture(device, queue, "", diffuse_texture).unwrap();
+
+        text_material
     }
 }

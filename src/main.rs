@@ -1,4 +1,4 @@
-static MODE: Mode = Mode::Dev;
+pub static MODE: Mode = Mode::Dev;
 
 mod backdrop;
 mod camera;
@@ -19,7 +19,7 @@ use winit::{
 };
 
 #[allow(dead_code)]
-enum Mode {
+pub enum Mode {
     Debug,
     Dev,
 }

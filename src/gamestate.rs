@@ -27,6 +27,7 @@ pub struct GameState {
     entities: Vec<Option<Entity>>,
     pub world: World,
     last_update: Instant,
+    score: usize,
 }
 
 #[allow(dead_code)]
@@ -38,6 +39,7 @@ impl GameState {
             entities: vec![],
             world: World::init(aspect),
             last_update: Instant::now(),
+            score: 0,
         };
 
         game.push(Entity::make_spaceship(
@@ -75,6 +77,10 @@ impl GameState {
 
         debug(&format!("Killing {}", index));
         debug(&format!("Entites: {:?}", self.entities));
+    }
+
+    pub fn score(&self) -> usize {
+        self.score
     }
 
     pub fn spawn_asteroid(&mut self) {
@@ -327,15 +333,17 @@ impl GameState {
         self
     }
 
-    pub fn asteroids_spawn_system(&mut self) -> &mut Self {
-        let number_of_asteroids = self
-            .entities
+    pub fn asteroids_count(&self) -> usize {
+        self.entities
             .par_iter()
             .filter_map(|entity_option| {
-                entity_option.map(|entity| entity.name.starts_with("Asteroid"))
+                entity_option.filter(|entity| entity.name.starts_with("Asteroid"))
             })
-            .count();
-        if number_of_asteroids < 3 {
+            .count()
+    }
+
+    pub fn asteroids_spawn_system(&mut self) -> &mut Self {
+        if self.asteroids_count() < 3 {
             self.spawn_asteroid();
         }
 
@@ -345,6 +353,32 @@ impl GameState {
     pub fn submit(&mut self) {
         self.last_update = Instant::now();
     }
+}
+
+#[test]
+fn test_gamestate_asteroids_count() {
+    let world = World::init(1.0);
+    let default_position = world.new_position((0.0, 0.0).into());
+    let a1 = Entity::new("Asteroid_1", default_position.clone());
+    let a2 = Entity::new("Asteroid_2", default_position.clone());
+    let s = Entity::new("Spaceship", default_position.clone());
+
+    let entities = vec![
+        Some(s.clone()),
+        Some(a1.clone()),
+        None,
+        Some(a1.clone()),
+        Some(a2.clone()),
+    ];
+
+    let gamestate = GameState {
+        entities,
+        world,
+        last_update: Instant::now(),
+        score: 0,
+    };
+
+    assert_eq!(gamestate.asteroids_count(), 3);
 }
 
 #[test]
@@ -368,6 +402,7 @@ fn test_gamestate_entities_grouped() {
         entities,
         world,
         last_update: Instant::now(),
+        score: 0,
     };
 
     let expected = vec![
