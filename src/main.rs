@@ -10,6 +10,7 @@ mod light;
 mod model;
 mod state;
 mod texture;
+mod ui;
 
 use state::State;
 use winit::{
