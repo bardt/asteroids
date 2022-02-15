@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use crate::backdrop::BackdropRenderer;
 use crate::font::FontRenderer;
 use crate::gamestate::geometry::Rect;
@@ -39,6 +41,7 @@ pub struct State {
     font_renderer: FontRenderer,
     gamestate: GameState,
     input: Input,
+    last_renders: [Instant; 2],
 }
 
 impl State {
@@ -162,7 +165,7 @@ impl State {
         .unwrap();
 
         let input = Input::new();
-
+        let last_renders = [Instant::now(), Instant::now()];
         let font_renderer = FontRenderer::load();
 
         Self {
@@ -186,6 +189,7 @@ impl State {
             instance_buffer_size,
             textures: vec![],
             font_renderer,
+            last_renders,
             input,
         }
     }
@@ -289,11 +293,19 @@ impl State {
 
         // UI
         {
-            let padding = (10., 10.);
             let (world_width, world_height) = self.gamestate.world.size;
             let world_aspect = world_width / world_height;
 
-            let mut text_materials = if let crate::Mode::Debug = crate::MODE {
+            let line_height = 0.2;
+
+            // Best quality, but very slow
+            // let font_size = self.size.height as f32 * line_height / 2.0;
+            // Poor quality, but fast
+            let font_size = 20.;
+
+            let padding = (font_size * 0.4, font_size * 0.4);
+
+            let mut left_column = if let crate::Mode::Debug = crate::MODE {
                 self.gamestate
                     .entities_grouped()
                     .iter()
@@ -302,7 +314,7 @@ impl State {
                             &self.device,
                             &self.queue,
                             format!("{:?}: {:?}", name, entities.len()).as_str(),
-                            40.,
+                            font_size,
                             padding,
                             (150, 150, 0),
                         )
@@ -312,33 +324,41 @@ impl State {
                 vec![]
             };
 
-            text_materials.push(self.font_renderer.render_material(
+            left_column.push(self.font_renderer.render_material(
                 &self.device,
                 &self.queue,
                 format!("Score: {:?}", self.gamestate.score()).as_str(),
-                20.,
+                font_size,
                 padding,
                 (150, 150, 0),
             ));
 
-            text_materials.push(self.font_renderer.render_material(
+            left_column.push(self.font_renderer.render_material(
                 &self.device,
                 &self.queue,
                 format!("Asteroids: {:?}", self.gamestate.asteroids_count()).as_str(),
-                20.,
+                font_size,
                 padding,
                 (150, 150, 0),
             ));
 
-            self.textures.resize_with(text_materials.len(), || {
-                let vertex_buffer = TextureRenderer::init_vertex_buffer(&self.device);
-                (vertex_buffer, None)
-            });
+            let right_column = vec![self.font_renderer.render_material(
+                &self.device,
+                &self.queue,
+                format!("{:?} FPS", self.fps()).as_str(),
+                font_size,
+                padding,
+                (150, 150, 0),
+            )];
 
-            let line_height = 0.2;
+            self.textures
+                .resize_with(left_column.len() + right_column.len(), || {
+                    let vertex_buffer = TextureRenderer::init_vertex_buffer(&self.device);
+                    (vertex_buffer, None)
+                });
 
-            for (index, text_material) in text_materials.into_iter().enumerate().collect::<Vec<_>>()
-            {
+            let left_column_len = left_column.len();
+            for (index, text_material) in left_column.into_iter().enumerate().collect::<Vec<_>>() {
                 let count_rect = Rect {
                     left_top: (-1., 1. - (index as f32) * line_height),
                     right_bottom: (
@@ -355,6 +375,25 @@ impl State {
                     &self.queue,
                 );
                 self.textures[index].1 = Some(text_material);
+            }
+
+            for (index, text_material) in right_column.into_iter().enumerate().collect::<Vec<_>>() {
+                let count_rect = Rect {
+                    left_top: (
+                        1. - text_material.diffuse_texture.size.width as f32
+                            / text_material.diffuse_texture.size.height as f32
+                            / world_aspect
+                            * line_height,
+                        1. - (index as f32) * line_height,
+                    ),
+                    right_bottom: (1., 1. - (index + 1) as f32 * line_height),
+                };
+                TextureRenderer::update_vertex_buffer(
+                    &self.textures[index + left_column_len].0,
+                    &count_rect,
+                    &self.queue,
+                );
+                self.textures[index + left_column_len].1 = Some(text_material);
             }
         }
 
@@ -504,7 +543,20 @@ impl State {
 
         self.queue.submit(std::iter::once(encoder.finish()));
         output.present();
+        self.last_renders[1] = self.last_renders[0];
+        self.last_renders[0] = Instant::now();
 
         Ok(())
+    }
+
+    fn fps(&self) -> u128 {
+        let [last, previous] = self.last_renders;
+        let delta_time = (last - previous).as_millis();
+
+        if delta_time > 0 {
+            1000 / delta_time
+        } else {
+            0
+        }
     }
 }
