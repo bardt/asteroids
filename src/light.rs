@@ -1,8 +1,3 @@
-use crate::{
-    camera,
-    model::{self, Model, Vertex},
-    texture,
-};
 use wgpu::util::DeviceExt;
 
 #[repr(C)]
@@ -101,83 +96,5 @@ impl LightRenderer {
     pub fn update_buffer(&mut self, queue: &wgpu::Queue) {
         let buffer_uniform = &[LightBuffer::new(&self.uniform)];
         queue.write_buffer(&self.buffer, 0, bytemuck::cast_slice(buffer_uniform));
-    }
-
-    pub fn pipeline(
-        &self,
-        device: &wgpu::Device,
-        surface_config: &wgpu::SurfaceConfiguration,
-        camera_renderer: &camera::CameraRenderer,
-    ) -> wgpu::RenderPipeline {
-        let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Light Render Pipeline Layout"),
-            bind_group_layouts: &[&camera_renderer.bind_group_layout, &self.bind_group_layout],
-            push_constant_ranges: &[],
-        });
-        let shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
-            label: Some("Light Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("light.wgsl").into()),
-        });
-        device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Light Render Pipeline"),
-            layout: Some(&layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: "main",
-                buffers: &[model::ModelVertex::desc()],
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: "main_fragment",
-                targets: &[wgpu::ColorTargetState {
-                    format: surface_config.format,
-                    blend: Some(wgpu::BlendState::REPLACE),
-                    write_mask: wgpu::ColorWrites::ALL,
-                }],
-            }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
-                // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
-                polygon_mode: wgpu::PolygonMode::Fill,
-                conservative: false,
-                unclipped_depth: false,
-            },
-            depth_stencil: Some(wgpu::DepthStencilState {
-                format: texture::Texture::DEPTH_FORMAT,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less,
-                stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState::default(),
-            }),
-            multisample: wgpu::MultisampleState {
-                count: 1,
-                mask: !0,
-                // Has to do with anti-aliasing
-                alpha_to_coverage_enabled: false,
-            },
-            multiview: None,
-        })
-    }
-
-    // @TODO: specify instance data; now we rely on set_vertex_buffer in slot 1 outside of this function
-    pub fn draw_named_mesh<'a, 'b>(
-        &'b self,
-        name: &str,
-        model: &'b Model,
-        camera_bind_group: &'b wgpu::BindGroup,
-        render_pass: &mut wgpu::RenderPass<'a>,
-    ) where
-        'b: 'a,
-    {
-        if let Some(mesh) = model.meshes.iter().find(|mesh| mesh.name == name) {
-            render_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
-            render_pass.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-            render_pass.set_bind_group(0, camera_bind_group, &[]);
-            render_pass.set_bind_group(1, &self.bind_group, &[]);
-            render_pass.draw_indexed(0..mesh.num_elements, 0, 0..1);
-        }
     }
 }

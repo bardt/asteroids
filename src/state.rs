@@ -31,7 +31,6 @@ pub struct State {
     depth_texture: texture::Texture,
     obj_model: Model,
     light_renderer: light::LightRenderer,
-    light_render_pipeline: wgpu::RenderPipeline,
     backdrop_renderer: BackdropRenderer,
     backdrop_render_pipeline: wgpu::RenderPipeline,
     gamestate: GameState,
@@ -146,7 +145,6 @@ impl State {
             )
         };
 
-        let light_render_pipeline = light_renderer.pipeline(&device, &config, &camera_renderer);
         let backdrop_render_pipeline = backdrop_renderer.pipeline(&device, &config);
 
         let res_dir = std::path::Path::new(env!("OUT_DIR")).join("res");
@@ -174,7 +172,6 @@ impl State {
             depth_texture,
             render_pipeline,
             light_renderer,
-            light_render_pipeline,
             backdrop_renderer,
             backdrop_render_pipeline,
             instance_buffer,
@@ -393,16 +390,6 @@ impl State {
 
             render_pass.set_pipeline(&self.backdrop_render_pipeline);
             self.backdrop_renderer.draw(&mut render_pass);
-
-            // @TODO: remove light rendering
-            // Render light
-            render_pass.set_pipeline(&self.light_render_pipeline);
-            self.light_renderer.draw_named_mesh(
-                "Asteroid_S",
-                &self.obj_model,
-                &self.camera_renderer.bind_group,
-                &mut render_pass,
-            );
 
             // Render entities
             render_pass.set_pipeline(&self.render_pipeline);
