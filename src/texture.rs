@@ -236,6 +236,8 @@ impl Vertex for TextureVertex {
     }
 }
 
+const TEXTURE_SHADER: &[u8] = include_bytes!(env!("texture.spv"));
+
 pub struct TextureRenderer {
     index_buffer: wgpu::Buffer,
     bind_group_layout: wgpu::BindGroupLayout,
@@ -264,7 +266,7 @@ impl TextureRenderer {
     ) -> wgpu::RenderPipeline {
         let shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
             label: Some("Texture Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("texture.wgsl").into()),
+            source: wgpu::ShaderSource::SpirV(wgpu::util::make_spirv_raw(TEXTURE_SHADER)),
         });
 
         let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -278,12 +280,12 @@ impl TextureRenderer {
             layout: Some(&layout),
             vertex: wgpu::VertexState {
                 module: &shader,
-                entry_point: "main",
+                entry_point: "main_vs",
                 buffers: &[TextureVertex::desc()],
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
-                entry_point: "main_fragment",
+                entry_point: "main_fs",
                 targets: &[wgpu::ColorTargetState {
                     format: surface_config.format,
                     blend: Some(wgpu::BlendState::ALPHA_BLENDING),

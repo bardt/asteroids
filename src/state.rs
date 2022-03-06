@@ -18,6 +18,8 @@ use winit::{
     window::Window,
 };
 
+pub const MODEL_SHADER: &[u8] = include_bytes!(env!("model.spv"));
+
 pub struct State {
     pub size: winit::dpi::PhysicalSize<u32>,
     surface: wgpu::Surface,
@@ -133,7 +135,7 @@ impl State {
         let render_pipeline = {
             let shader = wgpu::ShaderModuleDescriptor {
                 label: Some("Shader"),
-                source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
+                source: wgpu::ShaderSource::SpirV(wgpu::util::make_spirv_raw(MODEL_SHADER)),
             };
             State::create_render_pipeline(
                 &device,
@@ -197,12 +199,12 @@ impl State {
             layout: Some(&layout),
             vertex: wgpu::VertexState {
                 module: &shader,
-                entry_point: "main",
+                entry_point: "main_vs",
                 buffers: vertex_layouts,
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
-                entry_point: "main_fragment",
+                entry_point: "main_fs",
                 targets: &[wgpu::ColorTargetState {
                     format: color_format,
                     blend: Some(wgpu::BlendState::REPLACE),

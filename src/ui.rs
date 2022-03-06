@@ -50,7 +50,7 @@ impl UI {
                 text.as_str(),
                 font_size,
                 padding,
-                (150, 150, 0),
+                (180, 100, 40),
             )
         };
 
