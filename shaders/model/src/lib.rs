@@ -52,10 +52,10 @@ const MAX_LIGHTS: usize = 16;
 #[derive(Copy, Clone, Pod, Zeroable)]
 pub struct LightsUniform {
     data: [LightUniform; MAX_LIGHTS],
-    size: u32,
-    _padding1: u32,
-    _padding2: u32,
-    _padding3: u32,
+    size: usize,
+    _padding1: usize,
+    _padding2: usize,
+    _padding3: usize,
 }
 
 impl LightsUniform {
@@ -67,7 +67,7 @@ impl LightsUniform {
 
         Self {
             data,
-            size: lights.len() as u32,
+            size: lights.len(),
             _padding1: 0,
             _padding2: 0,
             _padding3: 0,
