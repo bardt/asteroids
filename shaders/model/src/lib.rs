@@ -7,8 +7,9 @@
 // HACK(eddyb) can't easily see warnings otherwise from `spirv-builder` builds.
 #![deny(warnings)]
 
+use bytemuck::{Pod, Zeroable};
 use spirv_std::glam::Vec4Swizzles;
-use spirv_std::glam::{mat3, mat4, vec3, Mat3, Mat4, Vec2, Vec3, Vec4};
+use spirv_std::glam::{mat3, mat4, vec3, vec4, Mat3, Mat4, Vec2, Vec3, Vec4};
 use spirv_std::num_traits::Float;
 use spirv_std::Image;
 use spirv_std::Sampler;
@@ -23,17 +24,55 @@ pub struct CameraUniform {
     view_proj: Mat4,
 }
 
-pub struct Light {
+#[repr(C)]
+#[derive(Copy, Clone, Pod, Zeroable)]
+pub struct LightUniform {
     position: Vec4,
     color: Vec4,
     radius: Vec4,
 }
 
+impl LightUniform {
+    pub fn new(position: [f32; 3], color: [f32; 3], radius: f32) -> Self {
+        Self {
+            position: vec4(position[0], position[1], position[2], 0.),
+            color: vec4(color[0], color[1], color[2], 0.),
+            radius: vec4(radius, 0., 0., 0.),
+        }
+    }
+
+    pub fn empty() -> Self {
+        Self::new([0.0, 0.0, 0.0], [0.0, 0.0, 0.0], 0.0)
+    }
+}
+
 const MAX_LIGHTS: usize = 16;
 
-pub struct LightBuffer {
-    data: [Light; MAX_LIGHTS],
-    size: usize,
+#[repr(C)]
+#[derive(Copy, Clone, Pod, Zeroable)]
+pub struct LightsUniform {
+    data: [LightUniform; MAX_LIGHTS],
+    size: u32,
+    _padding1: u32,
+    _padding2: u32,
+    _padding3: u32,
+}
+
+impl LightsUniform {
+    pub fn new(lights: &[LightUniform]) -> Self {
+        let mut data = [LightUniform::empty(); MAX_LIGHTS];
+        for i in 0..lights.len().min(MAX_LIGHTS) {
+            data[i] = lights[i];
+        }
+
+        Self {
+            data,
+            size: lights.len() as u32,
+            _padding1: 0,
+            _padding2: 0,
+            _padding3: 0,
+        }
+    }
 }
 
 #[spirv(vertex)]
@@ -95,7 +134,7 @@ pub fn main_fs(
     #[spirv(descriptor_set = 0, binding = 1)] s_diffuse: &Sampler,
     #[spirv(descriptor_set = 0, binding = 2)] t_normal: &Image2d,
     #[spirv(descriptor_set = 0, binding = 3)] s_normal: &Sampler,
-    #[spirv(descriptor_set = 2, binding = 0, uniform)] lights: &LightBuffer,
+    #[spirv(descriptor_set = 2, binding = 0, uniform)] lights: &LightsUniform,
     output: &mut Vec4,
 ) {
     let object_color: Vec4 = t_diffuse.sample(*s_diffuse, uv);
@@ -108,16 +147,14 @@ pub fn main_fs(
     let mut total_lighting_color: Vec3 = vec3(1.0, 1.0, 1.0) * ambient_strength;
 
     let mut i = 0_usize;
-    // usize::min doesn't work
-    // for in range doesn't work
-    while i < min_usize(lights.size, MAX_LIGHTS) {
-        let light: &Light = &lights.data[i];
+
+    while i < min_usize(lights.size as usize, MAX_LIGHTS) {
+        let light: &LightUniform = &lights.data[i];
 
         let tangent_light_position = tangent_matrix * light.position.xyz();
 
         let light_dir = (tangent_light_position - tangent_position).normalize();
         let light_distance = (tangent_light_position - tangent_position).length();
-        // light.radius[0] compiles, but fails at runtime
         let light_intencity = smoothstep(light.radius.x, 0.0, light_distance);
         let view_dir = (tangent_view_position - tangent_position).normalize();
         let half_dir = (view_dir + light_dir).normalize();

@@ -21,6 +21,7 @@ tobj = "3.0"
 rayon = "1.5"
 rand = "0.8.4"
 rusttype = "0.9.2"
+shader-model = { path = "shaders/model" }
 
 [build-dependencies]
 anyhow = "1.0"

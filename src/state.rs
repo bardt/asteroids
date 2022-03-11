@@ -18,7 +18,7 @@ use winit::{
     window::Window,
 };
 
-pub const MODEL_SHADER: &[u8] = include_bytes!(env!("model.spv"));
+pub const MODEL_SHADER: &[u8] = include_bytes!(env!("shader_model.spv"));
 
 pub struct State {
     pub size: winit::dpi::PhysicalSize<u32>,
@@ -423,10 +423,14 @@ impl State {
 
     fn fps(&self) -> u128 {
         let [last, previous] = self.last_renders;
-        let delta_time = (last - previous).as_millis();
+        if last > previous {
+            let delta_time = (last - previous).as_millis();
 
-        if delta_time > 0 {
-            1000 / delta_time
+            if delta_time > 0 {
+                1000 / delta_time
+            } else {
+                0
+            }
         } else {
             0
         }

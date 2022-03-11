@@ -2,8 +2,7 @@ use std::time::Duration;
 
 use cgmath::{Deg, Rotation3, Zero};
 use rand::Rng;
-
-use crate::light::LightUniform;
+use shader_model::LightUniform;
 
 use super::GameState;
 

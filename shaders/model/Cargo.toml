@@ -1,5 +1,5 @@
 [package]
-name = "model"
+name = "shader-model"
 version = "0.1.0"
 edition = "2021"
 publish = false
@@ -9,3 +9,5 @@ crate-type = ["lib", "dylib"]
 
 [dependencies]
 spirv-std = { git = "https://github.com/EmbarkStudios/rust-gpu", features = ["glam"] }
+glam = { version = "0.20.2", default-features = false, features = ["libm", "bytemuck"] }
+bytemuck = { version = "1.4", features = [ "derive" ] }

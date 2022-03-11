@@ -7,13 +7,13 @@ pub mod world;
 use crate::debug;
 use crate::instance::InstanceRaw;
 
-use crate::light::LightUniform;
 use crate::{input::Input, instance::Instance};
 use cgmath::prelude::*;
 
 use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::IntoParallelRefMutIterator;
 use rayon::iter::ParallelIterator;
+use shader_model::LightUniform;
 
 use std::time::Duration;
 use std::time::Instant;
