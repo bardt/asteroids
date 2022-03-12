@@ -90,7 +90,12 @@ impl UI {
                     1. - (index + 1) as f32 * line_height,
                 ),
             };
-            TextureRenderer::update_vertex_buffer(&self.textures[index].0, &count_rect, queue);
+            TextureRenderer::update_vertex_buffer(
+                &self.textures[index].0,
+                &count_rect,
+                [0.; 4],
+                queue,
+            );
             self.textures[index].1 = Some(text_material);
         }
 
@@ -108,6 +113,7 @@ impl UI {
             TextureRenderer::update_vertex_buffer(
                 &self.textures[index + left_column_len].0,
                 &count_rect,
+                [0.; 4],
                 queue,
             );
             self.textures[index + left_column_len].1 = Some(text_material);

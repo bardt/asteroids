@@ -32,7 +32,6 @@ pub struct State {
     depth_texture: texture::Texture,
     obj_model: Model,
     backdrop_renderer: BackdropRenderer,
-    backdrop_render_pipeline: wgpu::RenderPipeline,
     gamestate: GameState,
     input: Input,
     last_renders: [Instant; 2],
@@ -97,7 +96,8 @@ impl State {
         camera_buffer.update_buffer(&queue, &mut gamestate.world.camera);
 
         let lights_buffer = LightsBuffer::new(&device);
-        let backdrop_renderer = BackdropRenderer::init(&device);
+        let backdrop_renderer = BackdropRenderer::init(&device, &queue);
+        
 
         // DEPTH
 
@@ -116,8 +116,6 @@ impl State {
         let instance_buffer_size = (bytemuck::cast_slice(&instance_data) as &[u8]).len();
 
         let shaders = Shaders::init(&device, config.format, Some(texture::Texture::DEPTH_FORMAT));
-
-        let backdrop_render_pipeline = backdrop_renderer.pipeline(&device, &config);
 
         let res_dir = std::path::Path::new(env!("OUT_DIR")).join("res");
         let obj_model = model::Model::load(
@@ -144,7 +142,6 @@ impl State {
             depth_texture,
             lights_buffer,
             backdrop_renderer,
-            backdrop_render_pipeline,
             instance_buffer,
             instance_buffer_size,
             shaders,
@@ -306,8 +303,8 @@ impl State {
                 );
             }
 
-            render_pass.set_pipeline(&self.backdrop_render_pipeline);
-            self.backdrop_renderer.draw(&mut render_pass);
+            render_pass.set_pipeline(&self.shaders.texture.pipeline);
+            self.backdrop_renderer.render(&self.shaders, &mut render_pass);
 
             // Render entities
             render_pass.set_pipeline(&self.shaders.model.pipeline);

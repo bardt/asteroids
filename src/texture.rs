@@ -210,8 +210,9 @@ impl Texture {
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct TextureVertex {
-    position: [f32; 3],
-    tex_coords: [f32; 2],
+    pub position: [f32; 3],
+    pub tex_coords: [f32; 2],
+    pub color: [f32; 4],
 }
 
 impl Vertex for TextureVertex {
@@ -230,6 +231,11 @@ impl Vertex for TextureVertex {
                     offset: mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
                     shader_location: 1,
                     format: wgpu::VertexFormat::Float32x2,
+                },
+                wgpu::VertexAttribute {
+                    offset: mem::size_of::<[f32; 5]>() as wgpu::BufferAddress,
+                    shader_location: 2,
+                    format: wgpu::VertexFormat::Float32x4,
                 },
             ],
         }
@@ -256,6 +262,7 @@ impl TextureRenderer {
         let vert_placeholder = [TextureVertex {
             position: [0.0, 0.0, 0.0],
             tex_coords: [0.0, 0.0],
+            color: [0.0; 4],
         }; 4];
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Texture Vertex buffer"),
@@ -265,25 +272,34 @@ impl TextureRenderer {
         vertex_buffer
     }
 
-    pub fn update_vertex_buffer(vertex_buffer: &wgpu::Buffer, rect: &Rect, queue: &wgpu::Queue) {
+    pub fn update_vertex_buffer(
+        vertex_buffer: &wgpu::Buffer,
+        rect: &Rect,
+        color: [f32; 4],
+        queue: &wgpu::Queue,
+    ) {
         let (left, top) = rect.left_top;
         let (right, bottom) = rect.right_bottom;
         let vertex_data = [
             TextureVertex {
                 position: [left, bottom, 1.0],
                 tex_coords: [0.0, 1.0],
+                color,
             },
             TextureVertex {
                 position: [left, top, 1.0],
                 tex_coords: [0.0, 0.0],
+                color,
             },
             TextureVertex {
                 position: [right, top, 1.0],
                 tex_coords: [1.0, 0.0],
+                color,
             },
             TextureVertex {
                 position: [right, bottom, 1.0],
                 tex_coords: [1.0, 1.0],
+                color,
             },
         ];
 

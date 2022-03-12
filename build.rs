@@ -19,7 +19,6 @@ fn main() -> Result<()> {
 
     // @TODO: find a way to build all shaders from directory
     build_shader("shaders/model", true)?;
-    build_shader("shaders/backdrop", true)?;
     build_shader("shaders/texture", true)?;
 
     Ok(())

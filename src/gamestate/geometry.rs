@@ -6,6 +6,11 @@ pub struct Rect {
 }
 
 impl Rect {
+    pub const IDENTITY: Rect = Rect {
+        left_top: (-1., 1.),
+        right_bottom: (1., -1.),
+    };
+
     pub fn expand(&mut self, v: f32) {
         self.left_top.0 -= v;
         self.left_top.1 += v;
