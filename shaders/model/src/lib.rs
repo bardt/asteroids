@@ -7,6 +7,9 @@
 // HACK(eddyb) can't easily see warnings otherwise from `spirv-builder` builds.
 #![deny(warnings)]
 
+#[cfg(feature = "wgpu")]
+pub mod pipeline;
+
 use bytemuck::{Pod, Zeroable};
 use spirv_std::glam::Vec4Swizzles;
 use spirv_std::glam::{mat3, mat4, vec3, vec4, Mat3, Mat4, Vec2, Vec3, Vec4};
@@ -19,9 +22,25 @@ type Image2d = Image!(2D, type=f32, sampled);
 #[cfg(not(target_arch = "spirv"))]
 use spirv_std::macros::spirv;
 
+#[repr(C)]
+#[derive(Copy, Clone, Pod, Zeroable)]
 pub struct CameraUniform {
-    view_pos: Vec4,
-    view_proj: Mat4,
+    pub view_pos: Vec4,
+    pub view_proj: Mat4,
+}
+
+impl CameraUniform {
+    pub fn new() -> Self {
+        Self {
+            view_pos: Vec4::ZERO,
+            view_proj: Mat4::IDENTITY,
+        }
+    }
+
+    pub fn update(&mut self, pos: [f32; 4], proj: &[[f32; 4]; 4]) {
+        self.view_pos = pos.into();
+        self.view_proj = Mat4::from_cols_array_2d(proj);
+    }
 }
 
 #[repr(C)]

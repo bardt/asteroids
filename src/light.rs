@@ -1,15 +1,14 @@
 use model_shader::{LightUniform, LightsUniform};
 use wgpu::util::DeviceExt;
 
-pub struct LightRenderer {
+pub struct LightsBuffer {
     pub uniform: Vec<LightUniform>,
     buffer: wgpu::Buffer,
     pub bind_group: wgpu::BindGroup,
-    pub bind_group_layout: wgpu::BindGroupLayout,
 }
 
-impl LightRenderer {
-    pub fn init(device: &wgpu::Device) -> Self {
+impl LightsBuffer {
+    pub fn new(device: &wgpu::Device) -> Self {
         let uniform = vec![];
 
         let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -18,19 +17,8 @@ impl LightRenderer {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Light Bind Group Layout"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            }],
-        });
+        let bind_group_layout =
+            device.create_bind_group_layout(&shared::light_bind_group_layout_desc());
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Light Bind Group"),
@@ -44,7 +32,6 @@ impl LightRenderer {
         Self {
             uniform,
             buffer,
-            bind_group_layout,
             bind_group,
         }
     }

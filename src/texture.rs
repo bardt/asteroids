@@ -1,7 +1,6 @@
 use anyhow::*;
 use image::GenericImageView;
 use std::path::Path;
-use texture_shader;
 use wgpu::util::DeviceExt;
 
 use crate::{
@@ -237,8 +236,6 @@ impl Vertex for TextureVertex {
     }
 }
 
-const TEXTURE_SHADER: &[u8] = include_bytes!(env!("texture_shader.spv"));
-
 pub struct TextureRenderer {
     index_buffer: wgpu::Buffer,
 }
@@ -253,62 +250,6 @@ impl TextureRenderer {
         });
 
         Self { index_buffer }
-    }
-
-    pub fn pipeline(
-        &self,
-        device: &wgpu::Device,
-        surface_config: &wgpu::SurfaceConfiguration,
-    ) -> wgpu::RenderPipeline {
-        let shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
-            label: Some("Texture Shader"),
-            source: wgpu::ShaderSource::SpirV(wgpu::util::make_spirv_raw(TEXTURE_SHADER)),
-        });
-
-        let layout = texture_shader::pipeline::layout(device);
-
-        device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Texture Render Pipeline"),
-            layout: Some(&layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: "main_vs",
-                buffers: &[TextureVertex::desc()],
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: "main_fs",
-                targets: &[wgpu::ColorTargetState {
-                    format: surface_config.format,
-                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-                    write_mask: wgpu::ColorWrites::ALL,
-                }],
-            }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
-                // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
-                polygon_mode: wgpu::PolygonMode::Fill,
-                conservative: false,
-                unclipped_depth: false,
-            },
-            depth_stencil: Some(wgpu::DepthStencilState {
-                format: Texture::DEPTH_FORMAT,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Always,
-                stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState::default(),
-            }),
-            multisample: wgpu::MultisampleState {
-                count: 1,
-                mask: !0,
-                // Has to do with anti-aliasing
-                alpha_to_coverage_enabled: false,
-            },
-            multiview: None,
-        })
     }
 
     pub fn init_vertex_buffer(device: &wgpu::Device) -> wgpu::Buffer {

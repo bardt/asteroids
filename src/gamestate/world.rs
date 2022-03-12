@@ -4,6 +4,7 @@ use crate::{camera::Camera, instance::Instance};
 use cgmath::prelude::*;
 use cgmath::Vector2;
 use cgmath::Vector3;
+use model_shader::CameraUniform;
 use std::fmt::Display;
 
 const WORLD_SIZE_MIN: f32 = 100.;
@@ -57,6 +58,7 @@ impl World {
             bottom: -world_height / 2.,
             near: WORLD_SIZE_MIN - 25.,
             far: WORLD_SIZE_MIN + 25.,
+            uniform: CameraUniform::new(),
         };
 
         (size, camera)

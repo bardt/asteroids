@@ -8,6 +8,7 @@ mod input;
 mod instance;
 mod light;
 mod model;
+mod shaders;
 mod state;
 mod texture;
 mod ui;

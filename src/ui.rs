@@ -2,25 +2,24 @@ use crate::font::FontRenderer;
 use crate::gamestate::geometry::Rect;
 use crate::gamestate::GameState;
 use crate::model::Material;
+use crate::shaders::Shaders;
 use crate::texture::TextureRenderer;
 
 pub struct UI {
     font_renderer: FontRenderer,
     textures: Vec<(wgpu::Buffer, Option<Material>)>,
     texture_renderer: TextureRenderer,
-    texture_render_pipeline: wgpu::RenderPipeline,
 }
 
 impl UI {
-    pub fn new(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration) -> Self {
+    pub fn new(device: &wgpu::Device) -> Self {
         let font_renderer = FontRenderer::load();
         let texture_renderer = TextureRenderer::init(&device);
-        let texture_render_pipeline = texture_renderer.pipeline(device, config);
+
         Self {
             font_renderer,
             textures: vec![],
             texture_renderer,
-            texture_render_pipeline,
         }
     }
 
@@ -115,11 +114,11 @@ impl UI {
         }
     }
 
-    pub fn render<'a, 'b>(&'b self, render_pass: &mut wgpu::RenderPass<'a>)
+    pub fn render<'a, 'b>(&'b self, shaders: &'a Shaders, render_pass: &mut wgpu::RenderPass<'a>)
     where
         'b: 'a,
     {
-        render_pass.set_pipeline(&self.texture_render_pipeline);
+        render_pass.set_pipeline(&shaders.texture.pipeline);
         for (vertex_buffer, material) in &self.textures {
             if let Some(material) = material {
                 self.texture_renderer

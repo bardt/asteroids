@@ -37,3 +37,35 @@ pub fn texture_bind_group_layout_desc() -> wgpu::BindGroupLayoutDescriptor<'stat
         ],
     }
 }
+
+pub fn light_bind_group_layout_desc() -> wgpu::BindGroupLayoutDescriptor<'static> {
+    wgpu::BindGroupLayoutDescriptor {
+        label: Some("Light Bind Group Layout"),
+        entries: &[wgpu::BindGroupLayoutEntry {
+            binding: 0,
+            visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+            ty: wgpu::BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        }],
+    }
+}
+
+pub fn camera_bind_group_layout_desc() -> wgpu::BindGroupLayoutDescriptor<'static> {
+    wgpu::BindGroupLayoutDescriptor {
+        label: Some("Camera Bind Group Layout"),
+        entries: &[wgpu::BindGroupLayoutEntry {
+            binding: 0,
+            visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+            ty: wgpu::BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        }],
+    }
+}

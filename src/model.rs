@@ -1,4 +1,4 @@
-use crate::texture;
+use crate::{camera::CameraBuffer, light::LightsBuffer, texture};
 use anyhow::*;
 use cgmath::{InnerSpace, Vector2, Vector3};
 use rayon::prelude::*;
@@ -321,52 +321,47 @@ pub trait DrawModel<'a> {
         &mut self,
         mesh: &'a Mesh,
         material: &'a Material,
-        camera_bind_group: &'a wgpu::BindGroup,
-        light_bind_group: &'a wgpu::BindGroup,
+        camera: &'a CameraBuffer,
+        lights: &'a LightsBuffer,
     );
     fn draw_mesh_instanced(
         &mut self,
         mesh: &'a Mesh,
         material: &'a Material,
         instances: Range<u32>,
-        camera_bind_group: &'a wgpu::BindGroup,
-        light_bind_group: &'a wgpu::BindGroup,
+        camera: &'a CameraBuffer,
+        lights: &'a LightsBuffer,
     );
     fn draw_named_mesh(
         &mut self,
         name: &str,
         model: &'a Model,
-        camera_bind_group: &'a wgpu::BindGroup,
-        light_bind_group: &'a wgpu::BindGroup,
+        camera: &'a CameraBuffer,
+        lights: &'a LightsBuffer,
     );
     fn draw_named_mesh_instanced(
         &mut self,
         name: &str,
         model: &'a Model,
         instances: Range<u32>,
-        camera_bind_group: &'a wgpu::BindGroup,
-        light_bind_group: &'a wgpu::BindGroup,
+        camera: &'a CameraBuffer,
+        lights: &'a LightsBuffer,
     );
-    fn draw_model(
-        &mut self,
-        model: &'a Model,
-        camera_bind_group: &'a wgpu::BindGroup,
-        light_bind_group: &'a wgpu::BindGroup,
-    );
+    fn draw_model(&mut self, model: &'a Model, camera: &'a CameraBuffer, lights: &'a LightsBuffer);
     fn draw_model_instanced(
         &mut self,
         model: &'a Model,
         instances: Range<u32>,
-        camera_bind_group: &'a wgpu::BindGroup,
-        light_bind_group: &'a wgpu::BindGroup,
+        camera: &'a CameraBuffer,
+        lights: &'a LightsBuffer,
     );
     fn draw_model_instanced_with_material(
         &mut self,
         model: &'a Model,
         material: &'a Material,
         instances: Range<u32>,
-        camera_bind_group: &'a wgpu::BindGroup,
-        light_bind_group: &'a wgpu::BindGroup,
+        camera: &'a CameraBuffer,
+        lights: &'a LightsBuffer,
     );
 }
 impl<'a, 'b> DrawModel<'b> for wgpu::RenderPass<'a>
@@ -377,10 +372,10 @@ where
         &mut self,
         mesh: &'b Mesh,
         material: &'b Material,
-        camera_bind_group: &'b wgpu::BindGroup,
-        light_bind_group: &'b wgpu::BindGroup,
+        camera: &'a CameraBuffer,
+        lights: &'a LightsBuffer,
     ) {
-        self.draw_mesh_instanced(mesh, material, 0..1, camera_bind_group, light_bind_group);
+        self.draw_mesh_instanced(mesh, material, 0..1, camera, lights);
     }
 
     fn draw_mesh_instanced(
@@ -388,42 +383,31 @@ where
         mesh: &'b Mesh,
         material: &'b Material,
         instances: Range<u32>,
-        camera_bind_group: &'b wgpu::BindGroup,
-        light_bind_group: &'b wgpu::BindGroup,
+        camera: &'b CameraBuffer,
+        lights: &'b LightsBuffer,
     ) {
         self.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
         self.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
         self.set_bind_group(0, &material.bind_group, &[]);
-        self.set_bind_group(1, camera_bind_group, &[]);
-        self.set_bind_group(2, light_bind_group, &[]);
+        self.set_bind_group(1, &camera.bind_group, &[]);
+        self.set_bind_group(2, &lights.bind_group, &[]);
         self.draw_indexed(0..mesh.num_elements, 0, instances);
     }
 
-    fn draw_model(
-        &mut self,
-        model: &'b Model,
-        camera_bind_group: &'b wgpu::BindGroup,
-        light_bind_group: &'b wgpu::BindGroup,
-    ) {
-        self.draw_model_instanced(model, 0..1, camera_bind_group, light_bind_group);
+    fn draw_model(&mut self, model: &'b Model, camera: &'a CameraBuffer, lights: &'a LightsBuffer) {
+        self.draw_model_instanced(model, 0..1, camera, lights);
     }
 
     fn draw_model_instanced(
         &mut self,
         model: &'b Model,
         instances: Range<u32>,
-        camera_bind_group: &'b wgpu::BindGroup,
-        light_bind_group: &'b wgpu::BindGroup,
+        camera: &'a CameraBuffer,
+        lights: &'a LightsBuffer,
     ) {
         for mesh in &model.meshes {
             let material = &model.materials[mesh.material];
-            self.draw_mesh_instanced(
-                mesh,
-                material,
-                instances.clone(),
-                camera_bind_group,
-                light_bind_group,
-            );
+            self.draw_mesh_instanced(mesh, material, instances.clone(), camera, lights);
         }
     }
 
@@ -432,29 +416,23 @@ where
         model: &'b Model,
         material: &'b Material,
         instances: Range<u32>,
-        camera_bind_group: &'b wgpu::BindGroup,
-        light_bind_group: &'b wgpu::BindGroup,
+        camera: &'a CameraBuffer,
+        lights: &'a LightsBuffer,
     ) {
         for mesh in &model.meshes {
-            self.draw_mesh_instanced(
-                mesh,
-                material,
-                instances.clone(),
-                camera_bind_group,
-                light_bind_group,
-            );
+            self.draw_mesh_instanced(mesh, material, instances.clone(), camera, lights);
         }
     }
     fn draw_named_mesh(
         &mut self,
         name: &str,
         model: &'b Model,
-        camera_bind_group: &'b wgpu::BindGroup,
-        light_bind_group: &'b wgpu::BindGroup,
+        camera: &'a CameraBuffer,
+        lights: &'a LightsBuffer,
     ) {
         if let Some(mesh) = model.meshes.iter().find(|mesh| mesh.name == name) {
             let material = &model.materials[mesh.material];
-            self.draw_mesh(mesh, material, camera_bind_group, light_bind_group);
+            self.draw_mesh(mesh, material, camera, lights);
         }
     }
     fn draw_named_mesh_instanced(
@@ -462,18 +440,12 @@ where
         name: &str,
         model: &'b Model,
         instances: Range<u32>,
-        camera_bind_group: &'b wgpu::BindGroup,
-        light_bind_group: &'b wgpu::BindGroup,
+        camera: &'a CameraBuffer,
+        lights: &'a LightsBuffer,
     ) {
         if let Some(mesh) = model.meshes.iter().find(|mesh| mesh.name == name) {
             let material = &model.materials[mesh.material];
-            self.draw_mesh_instanced(
-                mesh,
-                material,
-                instances,
-                camera_bind_group,
-                light_bind_group,
-            );
+            self.draw_mesh_instanced(mesh, material, instances, camera, lights);
         }
     }
 }
