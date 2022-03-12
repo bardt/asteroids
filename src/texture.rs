@@ -1,6 +1,7 @@
 use anyhow::*;
 use image::GenericImageView;
 use std::path::Path;
+use texture_shader;
 use wgpu::util::DeviceExt;
 
 use crate::{
@@ -236,11 +237,10 @@ impl Vertex for TextureVertex {
     }
 }
 
-const TEXTURE_SHADER: &[u8] = include_bytes!(env!("texture.spv"));
+const TEXTURE_SHADER: &[u8] = include_bytes!(env!("texture_shader.spv"));
 
 pub struct TextureRenderer {
     index_buffer: wgpu::Buffer,
-    bind_group_layout: wgpu::BindGroupLayout,
 }
 
 impl TextureRenderer {
@@ -251,12 +251,8 @@ impl TextureRenderer {
             contents: bytemuck::cast_slice(&indices),
             usage: wgpu::BufferUsages::INDEX,
         });
-        let bind_group_layout = device.create_bind_group_layout(&Texture::desc());
 
-        Self {
-            index_buffer,
-            bind_group_layout,
-        }
+        Self { index_buffer }
     }
 
     pub fn pipeline(
@@ -269,11 +265,7 @@ impl TextureRenderer {
             source: wgpu::ShaderSource::SpirV(wgpu::util::make_spirv_raw(TEXTURE_SHADER)),
         });
 
-        let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Texture Render Pipeline Layout"),
-            bind_group_layouts: &[&self.bind_group_layout],
-            push_constant_ranges: &[],
-        });
+        let layout = texture_shader::pipeline::layout(device);
 
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Texture Render Pipeline"),

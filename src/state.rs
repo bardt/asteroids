@@ -18,7 +18,7 @@ use winit::{
     window::Window,
 };
 
-pub const MODEL_SHADER: &[u8] = include_bytes!(env!("shader_model.spv"));
+pub const MODEL_SHADER: &[u8] = include_bytes!(env!("model_shader.spv"));
 
 pub struct State {
     pub size: winit::dpi::PhysicalSize<u32>,

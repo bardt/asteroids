@@ -7,12 +7,15 @@
 // HACK(eddyb) can't easily see warnings otherwise from `spirv-builder` builds.
 #![deny(warnings)]
 
-#[cfg(not(target_arch = "spirv"))]
-use spirv_std::macros::spirv;
+#[cfg(feature = "wgpu")]
+pub mod pipeline;
 
 use spirv_std::glam::{vec4, Vec2, Vec4};
 use spirv_std::Image;
 use spirv_std::Sampler;
+
+#[cfg(not(target_arch = "spirv"))]
+use spirv_std::macros::spirv;
 
 type Image2d = Image!(2D, type=f32, sampled);
 

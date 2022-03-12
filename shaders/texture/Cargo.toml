@@ -1,5 +1,5 @@
 [package]
-name = "texture"
+name = "texture-shader"
 version = "0.1.0"
 edition = "2021"
 publish = false
@@ -7,5 +7,10 @@ publish = false
 [lib]
 crate-type = ["lib", "dylib"]
 
+[features]
+pipeline = [ "wgpu", "shared" ]
+
 [dependencies]
 spirv-std = { git = "https://github.com/EmbarkStudios/rust-gpu", features = ["glam"] }
+wgpu = { version = "0.12", optional = true }
+shared = { path = "../shared", optional = true}

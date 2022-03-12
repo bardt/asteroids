@@ -10,10 +10,10 @@ use crate::instance::InstanceRaw;
 use crate::{input::Input, instance::Instance};
 use cgmath::prelude::*;
 
+use model_shader::LightUniform;
 use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::IntoParallelRefMutIterator;
 use rayon::iter::ParallelIterator;
-use shader_model::LightUniform;
 
 use std::time::Duration;
 use std::time::Instant;

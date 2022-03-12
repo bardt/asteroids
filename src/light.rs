@@ -1,4 +1,4 @@
-use shader_model::{LightUniform, LightsUniform};
+use model_shader::{LightUniform, LightsUniform};
 use wgpu::util::DeviceExt;
 
 pub struct LightRenderer {

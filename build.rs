@@ -17,6 +17,7 @@ fn main() -> Result<()> {
     paths_to_copy.push("res/");
     copy_items(&paths_to_copy, out_dir, &copy_options)?;
 
+    // @TODO: find a way to build all shaders from directory
     build_shader("shaders/model", true)?;
     build_shader("shaders/backdrop", true)?;
     build_shader("shaders/texture", true)?;
