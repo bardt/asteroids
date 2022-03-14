@@ -15,6 +15,7 @@ pub trait Vertex {
 pub struct ModelVertex {
     position: [f32; 3],
     tex_coords: [f32; 2],
+    color: [f32; 4],
     normal: [f32; 3],
     tangent: [f32; 3],
     bitangent: [f32; 3],
@@ -40,16 +41,21 @@ impl Vertex for ModelVertex {
                 wgpu::VertexAttribute {
                     offset: mem::size_of::<[f32; 5]>() as wgpu::BufferAddress,
                     shader_location: 2,
-                    format: wgpu::VertexFormat::Float32x3,
+                    format: wgpu::VertexFormat::Float32x4,
                 },
                 wgpu::VertexAttribute {
-                    offset: mem::size_of::<[f32; 8]>() as wgpu::BufferAddress,
+                    offset: mem::size_of::<[f32; 9]>() as wgpu::BufferAddress,
                     shader_location: 3,
                     format: wgpu::VertexFormat::Float32x3,
                 },
                 wgpu::VertexAttribute {
-                    offset: mem::size_of::<[f32; 11]>() as wgpu::BufferAddress,
+                    offset: mem::size_of::<[f32; 12]>() as wgpu::BufferAddress,
                     shader_location: 4,
+                    format: wgpu::VertexFormat::Float32x3,
+                },
+                wgpu::VertexAttribute {
+                    offset: mem::size_of::<[f32; 15]>() as wgpu::BufferAddress,
+                    shader_location: 5,
                     format: wgpu::VertexFormat::Float32x3,
                 },
             ],
@@ -198,6 +204,7 @@ impl Model {
                             m.mesh.positions[i * 3 + 2],
                         ],
                         tex_coords: [m.mesh.texcoords[i * 2], 1.0 - m.mesh.texcoords[i * 2 + 1]],
+                        color: [0.; 4],
                         normal: [
                             m.mesh.normals[i * 3],
                             m.mesh.normals[i * 3 + 1],

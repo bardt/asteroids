@@ -96,12 +96,14 @@ impl LightsUniform {
 
 #[spirv(vertex)]
 pub fn main_vs(
+    // Vertex data
     position: Vec3,
     uv: Vec2,
+    _color: Vec4,
     normal: Vec3,
     tangent: Vec3,
     bitangent: Vec3,
-    // For some reason, Mat3 and Mat4 fails as inputs
+    // Instance data
     model_matrix_0: Vec4,
     model_matrix_1: Vec4,
     model_matrix_2: Vec4,

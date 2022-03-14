@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use crate::{
-    backdrop::BackdropRenderer,
+    backdrop::Backdrop,
     camera::{self, CameraBuffer},
     debug,
     gamestate::GameState,
@@ -31,7 +31,7 @@ pub struct State {
     lights_buffer: light::LightsBuffer,
     depth_texture: texture::Texture,
     obj_model: Model,
-    backdrop_renderer: BackdropRenderer,
+    backdrop_renderer: Backdrop,
     gamestate: GameState,
     input: Input,
     last_renders: [Instant; 2],
@@ -96,7 +96,7 @@ impl State {
         camera_buffer.update_buffer(&queue, &mut gamestate.world.camera);
 
         let lights_buffer = LightsBuffer::new(&device);
-        let backdrop_renderer = BackdropRenderer::init(&device, &queue);
+        let backdrop_renderer = Backdrop::init(&device, &queue);
         
 
         // DEPTH

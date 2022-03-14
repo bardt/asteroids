@@ -2,7 +2,6 @@ use crate::gamestate::geometry::Rect;
 use crate::model::Material;
 use crate::shaders::Shaders;
 use crate::texture::{Texture, TextureRenderer};
-use image::DynamicImage;
 
 const BACKDROP_COLOR_UNIFORM: [f32; 4] = [0.0, 0.01, 0.02, 1.0];
 
@@ -23,18 +22,9 @@ impl Backdrop {
             queue,
         );
 
-        let transparent_image = image::RgbaImage::new(1, 1);
-        let transparent_texture = Texture::from_image(
-            device,
-            queue,
-            &DynamicImage::ImageRgba8(transparent_image),
-            Some("Transparent 1x1 texture"),
-            false,
-        )
-        .unwrap();
-
+        let diffuse_texture = Texture::create_transparent_texture(device, queue).unwrap();
         let material =
-            Material::from_texture(device, queue, "Transparent", transparent_texture).unwrap();
+            Material::from_texture(device, queue, "Transparent", diffuse_texture).unwrap();
 
         Self {
             vertex_buffer,

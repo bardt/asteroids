@@ -152,6 +152,17 @@ impl Texture {
         Self::from_image(device, queue, &img, None, true)
     }
 
+    pub fn create_transparent_texture(device: &wgpu::Device, queue: &wgpu::Queue) -> Result<Self> {
+        let transparent_image = image::RgbaImage::new(1, 1);
+        Self::from_image(
+            device,
+            queue,
+            &image::DynamicImage::ImageRgba8(transparent_image),
+            Some("Transparent 1x1 texture"),
+            false,
+        )
+    }
+
     pub fn load<P: AsRef<Path>>(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
