@@ -1,5 +1,5 @@
 # Blender MTL File: 'assets.blend'
-# Material Count: 1
+# Material Count: 2
 
 newmtl Lowpoly_Texture_Material
 Ns 323.999994
@@ -11,3 +11,11 @@ Ni 1.450000
 d 1.000000
 illum 2
 map_Kd palette.png
+
+newmtl None
+Ns 500
+Ka 0.8 0.8 0.8
+Kd 0.8 0.8 0.8
+Ks 0.8 0.8 0.8
+d 1
+illum 2

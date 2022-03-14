@@ -164,12 +164,16 @@ impl Model {
         let materials = obj_materials
             .par_iter()
             .map(|mat| {
-                let diffuse_texture = texture::Texture::load(
-                    device,
-                    queue,
-                    containing_folder.join(&mat.diffuse_texture),
-                    false,
-                )?;
+                let diffuse_texture = if &mat.diffuse_texture == "" {
+                    texture::Texture::create_transparent_texture(device, queue)?
+                } else {
+                    texture::Texture::load(
+                        device,
+                        queue,
+                        containing_folder.join(&mat.diffuse_texture),
+                        false,
+                    )?
+                };
 
                 let normal_texture = if &mat.normal_texture == "" {
                     texture::Texture::create_default_normal(device, queue, &diffuse_texture)?

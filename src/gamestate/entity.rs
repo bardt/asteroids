@@ -215,6 +215,10 @@ impl Entity {
                         to_spawn.push(Entity::make_asteroid_m(
                             this.position.translate((-3.5, 0.0).into()),
                         ));
+                        to_spawn.push(Entity::make_cloud(
+                            this.position,
+                            cgmath::Quaternion::zero(),
+                        ))
                     }
 
                     for e in to_spawn {
@@ -324,6 +328,19 @@ impl Entity {
                         gamestate.kill(this_id);
                     }
                 },
+            }),
+            ..Default::default()
+        }
+    }
+
+    pub fn make_cloud(position: WorldPosition, rotation: cgmath::Quaternion<f32>) -> Entity {
+        Entity {
+            name: "Cloud_L",
+            position,
+            rotation,
+            entered_world: true,
+            lifetime: Some(Lifetime {
+                dies_after: Duration::from_secs(1),
             }),
             ..Default::default()
         }
