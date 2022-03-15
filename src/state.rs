@@ -7,8 +7,8 @@ use crate::{
     gamestate::GameState,
     input::Input,
     light::{self, LightsBuffer},
-    model::{self, DrawModel, Model},
-    shaders::Shaders,
+    model::DrawModel,
+    resource::Resources,
     texture,
     ui::UI,
 };
@@ -24,13 +24,12 @@ pub struct State {
     device: wgpu::Device,
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
-    shaders: Shaders,
+    resources: Resources,
     instance_buffer: wgpu::Buffer,
     instance_buffer_size: usize,
     camera_buffer: camera::CameraBuffer,
     lights_buffer: light::LightsBuffer,
     depth_texture: texture::Texture,
-    obj_model: Model,
     backdrop_renderer: Backdrop,
     gamestate: GameState,
     input: Input,
@@ -87,8 +86,6 @@ impl State {
         };
         surface.configure(&device, &config);
 
-        let texture_bind_group_layout = device.create_bind_group_layout(&texture::Texture::desc());
-
         let aspect = config.width as f32 / config.height as f32;
         let mut gamestate = GameState::new_game(aspect);
 
@@ -97,7 +94,6 @@ impl State {
 
         let lights_buffer = LightsBuffer::new(&device);
         let backdrop_renderer = Backdrop::init(&device, &queue);
-        
 
         // DEPTH
 
@@ -115,14 +111,11 @@ impl State {
         });
         let instance_buffer_size = (bytemuck::cast_slice(&instance_data) as &[u8]).len();
 
-        let shaders = Shaders::init(&device, config.format, Some(texture::Texture::DEPTH_FORMAT));
-
-        let res_dir = std::path::Path::new(env!("OUT_DIR")).join("res");
-        let obj_model = model::Model::load(
+        let resources = Resources::load(
             &device,
             &queue,
-            &texture_bind_group_layout,
-            res_dir.join("assets.obj"),
+            config.format,
+            Some(texture::Texture::DEPTH_FORMAT),
         )
         .unwrap();
 
@@ -138,13 +131,12 @@ impl State {
             size,
             gamestate,
             camera_buffer,
-            obj_model,
+            resources,
             depth_texture,
             lights_buffer,
             backdrop_renderer,
             instance_buffer,
             instance_buffer_size,
-            shaders,
             last_renders,
             input,
             ui,
@@ -303,11 +295,11 @@ impl State {
                 );
             }
 
-            render_pass.set_pipeline(&self.shaders.texture.pipeline);
-            self.backdrop_renderer.render(&self.shaders, &mut render_pass);
+            self.backdrop_renderer
+                .render(&self.resources, &mut render_pass);
 
             // Render entities
-            render_pass.set_pipeline(&self.shaders.model.pipeline);
+            render_pass.set_pipeline(&self.resources.shaders.model.pipeline);
             render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
 
             let mut offset = 0_u32;
@@ -315,7 +307,7 @@ impl State {
                 let size = instances.len() as u32;
                 render_pass.draw_named_mesh_instanced(
                     name,
-                    &self.obj_model,
+                    &self.resources,
                     offset..(offset + size),
                     &self.camera_buffer,
                     &self.lights_buffer,
@@ -323,7 +315,7 @@ impl State {
                 offset += size;
             }
 
-            self.ui.render(&self.shaders, &mut render_pass);
+            self.ui.render(&self.resources, &mut render_pass);
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::instance::InstanceRaw;
 use crate::model::{self, Vertex};
 use crate::texture::TextureVertex;
@@ -9,8 +11,8 @@ pub struct Shader {
 }
 
 pub struct Shaders {
-    pub texture: Shader,
-    pub model: Shader,
+    pub texture: Arc<Shader>,
+    pub model: Arc<Shader>,
 }
 
 impl Shaders {
@@ -41,7 +43,7 @@ impl Shaders {
                 module,
             );
 
-            Shader { pipeline }
+            Arc::new(Shader { pipeline })
         };
 
         let model = {
@@ -65,7 +67,7 @@ impl Shaders {
                 module,
             );
 
-            Shader { pipeline }
+            Arc::new(Shader { pipeline })
         };
 
         Self { texture, model }

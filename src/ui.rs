@@ -2,7 +2,7 @@ use crate::font::FontRenderer;
 use crate::gamestate::geometry::Rect;
 use crate::gamestate::GameState;
 use crate::model::Material;
-use crate::shaders::Shaders;
+use crate::resource::Resources;
 use crate::texture::TextureRenderer;
 
 pub struct UI {
@@ -120,11 +120,11 @@ impl UI {
         }
     }
 
-    pub fn render<'a, 'b>(&'b self, shaders: &'a Shaders, render_pass: &mut wgpu::RenderPass<'a>)
+    pub fn render<'a, 'b>(&'b self, res: &'a Resources, render_pass: &mut wgpu::RenderPass<'a>)
     where
         'b: 'a,
     {
-        render_pass.set_pipeline(&shaders.texture.pipeline);
+        render_pass.set_pipeline(&res.shaders.texture.pipeline);
         for (vertex_buffer, material) in &self.textures {
             if let Some(material) = material {
                 self.texture_renderer

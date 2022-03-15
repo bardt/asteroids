@@ -1,4 +1,4 @@
-use crate::{camera::CameraBuffer, light::LightsBuffer, texture};
+use crate::{camera::CameraBuffer, light::LightsBuffer, resource::Resources, texture};
 use anyhow::*;
 use cgmath::{InnerSpace, Vector2, Vector3};
 use rayon::prelude::*;
@@ -346,14 +346,14 @@ pub trait DrawModel<'a> {
     fn draw_named_mesh(
         &mut self,
         name: &str,
-        model: &'a Model,
+        res: &'a Resources,
         camera: &'a CameraBuffer,
         lights: &'a LightsBuffer,
     );
     fn draw_named_mesh_instanced(
         &mut self,
         name: &str,
-        model: &'a Model,
+        res: &'a Resources,
         instances: Range<u32>,
         camera: &'a CameraBuffer,
         lights: &'a LightsBuffer,
@@ -437,25 +437,25 @@ where
     fn draw_named_mesh(
         &mut self,
         name: &str,
-        model: &'b Model,
+        res: &'b Resources,
         camera: &'a CameraBuffer,
         lights: &'a LightsBuffer,
     ) {
-        if let Some(mesh) = model.meshes.iter().find(|mesh| mesh.name == name) {
-            let material = &model.materials[mesh.material];
+        if let Some(mesh) = res.get_mesh(name) {
+            let material = res.get_mesh_material(mesh);
             self.draw_mesh(mesh, material, camera, lights);
         }
     }
     fn draw_named_mesh_instanced(
         &mut self,
         name: &str,
-        model: &'b Model,
+        res: &'b Resources,
         instances: Range<u32>,
         camera: &'a CameraBuffer,
         lights: &'a LightsBuffer,
     ) {
-        if let Some(mesh) = model.meshes.iter().find(|mesh| mesh.name == name) {
-            let material = &model.materials[mesh.material];
+        if let Some(mesh) = res.get_mesh(name) {
+            let material = res.get_mesh_material(mesh);
             self.draw_mesh_instanced(mesh, material, instances, camera, lights);
         }
     }
