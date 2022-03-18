@@ -1,18 +1,22 @@
-use std::sync::Arc;
-
 use crate::instance::InstanceRaw;
 use crate::model::{self, Vertex};
 use crate::texture::TextureVertex;
 use texture_shader;
 use wgpu;
 
+#[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum ShaderName {
+    Model,
+    Texture,
+}
+
 pub struct Shader {
     pub pipeline: wgpu::RenderPipeline,
 }
 
 pub struct Shaders {
-    pub texture: Arc<Shader>,
-    pub model: Arc<Shader>,
+    pub texture: Shader,
+    pub model: Shader,
 }
 
 impl Shaders {
@@ -43,7 +47,7 @@ impl Shaders {
                 module,
             );
 
-            Arc::new(Shader { pipeline })
+            Shader { pipeline }
         };
 
         let model = {
@@ -67,10 +71,17 @@ impl Shaders {
                 module,
             );
 
-            Arc::new(Shader { pipeline })
+            Shader { pipeline }
         };
 
         Self { texture, model }
+    }
+
+    pub fn by_name(&self, name: ShaderName) -> &Shader {
+        match name {
+            ShaderName::Model => &self.model,
+            ShaderName::Texture => &self.texture,
+        }
     }
 }
 

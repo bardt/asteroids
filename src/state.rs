@@ -1,4 +1,4 @@
-use std::time::Instant;
+use std::{rc::Rc, time::Instant};
 
 use crate::{
     backdrop::Backdrop,
@@ -9,6 +9,7 @@ use crate::{
     light::{self, LightsBuffer},
     model::DrawModel,
     resource::Resources,
+    shaders::Shaders,
     texture,
     ui::UI,
 };
@@ -24,7 +25,6 @@ pub struct State {
     device: wgpu::Device,
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
-    resources: Resources,
     instance_buffer: wgpu::Buffer,
     instance_buffer_size: usize,
     camera_buffer: camera::CameraBuffer,
@@ -35,11 +35,13 @@ pub struct State {
     input: Input,
     last_renders: [Instant; 2],
     ui: UI,
+    shaders: Shaders,
+    resources: Rc<Resources>,
 }
 
 impl State {
     // Creating some of the wgpu types requires async code
-    pub async fn new(window: &Window) -> Self {
+    pub async fn new(window: &Window) -> State {
         let size = window.inner_size();
 
         // Backends::all => Vulkan + Metal + DX12 + Browser WebGPU
@@ -86,8 +88,11 @@ impl State {
         };
         surface.configure(&device, &config);
 
+        let resources = Rc::new(Resources::load(&device, &queue).unwrap());
+        let shaders = Shaders::init(&device, config.format, Some(texture::Texture::DEPTH_FORMAT));
+
         let aspect = config.width as f32 / config.height as f32;
-        let mut gamestate = GameState::new_game(aspect);
+        let mut gamestate = GameState::new_game(aspect, resources.clone());
 
         let mut camera_buffer = CameraBuffer::new(&device);
         camera_buffer.update_buffer(&queue, &mut gamestate.world.camera);
@@ -111,14 +116,6 @@ impl State {
         });
         let instance_buffer_size = (bytemuck::cast_slice(&instance_data) as &[u8]).len();
 
-        let resources = Resources::load(
-            &device,
-            &queue,
-            config.format,
-            Some(texture::Texture::DEPTH_FORMAT),
-        )
-        .unwrap();
-
         let input = Input::new();
         let last_renders = [Instant::now(), Instant::now()];
         let ui = UI::new(&device);
@@ -131,7 +128,6 @@ impl State {
             size,
             gamestate,
             camera_buffer,
-            resources,
             depth_texture,
             lights_buffer,
             backdrop_renderer,
@@ -140,6 +136,8 @@ impl State {
             last_renders,
             input,
             ui,
+            shaders,
+            resources,
         }
     }
 
@@ -167,7 +165,10 @@ impl State {
                 } => match keycode {
                     VirtualKeyCode::N => {
                         let aspect = self.config.width as f32 / self.config.height as f32;
-                        self.gamestate = GameState::new_game(aspect);
+                        self.gamestate = GameState::new_game(
+                            aspect,
+                            self.gamestate.entity_factory.resources.clone(),
+                        );
                         true
                     }
 
@@ -295,27 +296,34 @@ impl State {
                 );
             }
 
-            self.backdrop_renderer
-                .render(&self.resources, &mut render_pass);
+            render_pass.set_pipeline(&self.shaders.texture.pipeline);
+            self.backdrop_renderer.render(&mut render_pass);
 
             // Render entities
-            render_pass.set_pipeline(&self.resources.shaders.model.pipeline);
+
             render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
 
             let mut offset = 0_u32;
-            for (name, instances) in self.gamestate.instances_grouped() {
-                let size = instances.len() as u32;
-                render_pass.draw_named_mesh_instanced(
-                    name,
-                    &self.resources,
-                    offset..(offset + size),
-                    &self.camera_buffer,
-                    &self.lights_buffer,
-                );
-                offset += size;
+            for (shader_name, mesh_map) in self.gamestate.instances_grouped() {
+                render_pass.set_pipeline(&self.shaders.by_name(shader_name).pipeline);
+                for (mesh_id, mat_map) in mesh_map {
+                    for (mat_id, instances) in mat_map {
+                        let size = instances.len() as u32;
+
+                        render_pass.draw_mesh_instanced(
+                            &self.resources.meshes[mesh_id],
+                            &self.resources.materials[mat_id],
+                            offset..(offset + size),
+                            &self.camera_buffer,
+                            &self.lights_buffer,
+                        );
+                        offset += size;
+                    }
+                }
             }
 
-            self.ui.render(&self.resources, &mut render_pass);
+            render_pass.set_pipeline(&self.shaders.texture.pipeline);
+            self.ui.render(&mut render_pass);
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));

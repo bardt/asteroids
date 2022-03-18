@@ -4,6 +4,8 @@ use cgmath::{Deg, Rotation3, Zero};
 use model_shader::LightUniform;
 use rand::Rng;
 
+use crate::shaders::ShaderName;
+
 use super::GameState;
 
 #[derive(Clone, Copy)]
@@ -97,4 +99,11 @@ impl Light {
     pub fn uniform(&self, position: cgmath::Vector2<f32>) -> LightUniform {
         LightUniform::new(position.extend(self.z).into(), self.color, self.radius)
     }
+}
+
+#[derive(Clone)]
+pub struct Renderable {
+    pub shader: ShaderName,
+    pub mesh: usize,
+    pub material: usize,
 }

@@ -1,43 +1,46 @@
-use crate::{
-    model::{Material, Mesh, Model},
-    shaders::Shaders,
-    texture,
-};
 use anyhow::*;
 
+use crate::{
+    model::{Material, Mesh, Model},
+    texture,
+};
+
 pub struct Resources {
-    pub shaders: Shaders,
-    pub obj_model: Model,
+    pub meshes: Vec<Mesh>,
+    pub materials: Vec<Material>,
 }
 
 impl Resources {
-    pub fn load(
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        color_format: wgpu::TextureFormat,
-        depth_format: Option<wgpu::TextureFormat>,
-    ) -> Result<Self> {
+    pub const ZERO: Self = Resources {
+        meshes: vec![],
+        materials: vec![],
+    };
+
+    pub fn load(device: &wgpu::Device, queue: &wgpu::Queue) -> Result<Self> {
         let res_dir = std::path::Path::new(env!("OUT_DIR")).join("res");
 
         let texture_bind_group_layout = device.create_bind_group_layout(&texture::Texture::desc());
 
-        let obj_model = Model::load(
+        let model = Model::load(
             device,
             queue,
             &texture_bind_group_layout,
             res_dir.join("assets.obj"),
         )?;
 
-        let shaders = Shaders::init(device, color_format, depth_format);
+        let meshes = model.meshes;
+        let materials = model.materials;
 
-        Ok(Self { shaders, obj_model })
+        Ok(Self { meshes, materials })
     }
 
-    pub fn get_mesh(&self, name: &str) -> Option<&Mesh> {
-        self.obj_model.meshes.iter().find(|mesh| mesh.name == name)
-    }
-
-    pub fn get_mesh_material(&self, mesh: &Mesh) -> &Material {
-        &self.obj_model.materials[mesh.material]
+    pub fn get_mesh_by_name(&self, name: &str) -> Option<(usize, &Mesh)> {
+        self.meshes.iter().enumerate().find_map(|(id, mesh)| {
+            if mesh.name == name {
+                Some((id, mesh))
+            } else {
+                None
+            }
+        })
     }
 }

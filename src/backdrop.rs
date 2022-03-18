@@ -1,6 +1,5 @@
 use crate::gamestate::geometry::Rect;
 use crate::model::Material;
-use crate::resource::Resources;
 use crate::texture::{Texture, TextureRenderer};
 
 const BACKDROP_COLOR_UNIFORM: [f32; 4] = [0.0, 0.01, 0.02, 1.0];
@@ -33,14 +32,10 @@ impl Backdrop {
         }
     }
 
-    pub fn render<'a, 'b>(
-        &'b self,
-        resources: &'a Resources,
-        render_pass: &mut wgpu::RenderPass<'a>,
-    ) where
+    pub fn render<'a, 'b>(&'b self, render_pass: &mut wgpu::RenderPass<'a>)
+    where
         'b: 'a,
     {
-        render_pass.set_pipeline(&resources.shaders.texture.pipeline);
         self.texture_renderer
             .draw(&self.vertex_buffer, &self.material, render_pass);
     }

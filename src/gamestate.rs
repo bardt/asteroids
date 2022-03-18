@@ -7,6 +7,8 @@ pub mod world;
 use crate::debug;
 use crate::instance::InstanceRaw;
 
+use crate::resource::Resources;
+use crate::shaders::ShaderName;
 use crate::{input::Input, instance::Instance};
 use cgmath::prelude::*;
 
@@ -15,12 +17,15 @@ use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::IntoParallelRefMutIterator;
 use rayon::iter::ParallelIterator;
 
+use std::collections::BTreeMap;
+use std::rc::Rc;
 use std::time::Duration;
 use std::time::Instant;
 
 use rand::Rng;
 
-use self::entity::Entity;
+use self::components::Renderable;
+use self::entity::{Entity, EntityFactory};
 use self::world::World;
 
 pub struct GameState {
@@ -28,24 +33,28 @@ pub struct GameState {
     pub world: World,
     last_update: Instant,
     score: usize,
+    pub entity_factory: EntityFactory,
 }
 
 #[allow(dead_code)]
 type EntityIndex = usize;
 
+type GroupedForRender<T> = BTreeMap<ShaderName, BTreeMap<usize, BTreeMap<usize, Vec<T>>>>;
+
 impl GameState {
-    pub fn new_game(aspect: f32) -> Self {
+    pub fn new_game(aspect: f32, resources: Rc<Resources>) -> Self {
         let mut game = Self {
             entities: vec![],
             world: World::init(aspect),
             last_update: Instant::now(),
             score: 0,
+            entity_factory: EntityFactory { resources },
         };
 
-        game.push(Entity::make_spaceship(
-            game.world.new_position((0.0, 0.0).into()),
-            0.,
-        ));
+        game.push(
+            game.entity_factory
+                .make_spaceship(game.world.new_position((0.0, 0.0).into()), 0.),
+        );
 
         game.spawn_asteroid();
         game.spawn_asteroid();
@@ -67,9 +76,6 @@ impl GameState {
             Some(id) => self.entities[id] = Some(entity),
             None => self.entities.push(Some(entity)),
         }
-
-        debug(&format!("Pushing {:?}", &entity));
-        debug(&format!("Entites: {:?}", self.entities));
     }
 
     pub fn kill(&mut self, index: EntityIndex) {
@@ -101,7 +107,9 @@ impl GameState {
             position.1 = (h / 2. + asteroid_radius) * if bottom { -1. } else { 1. };
         }
 
-        let mut asteroid = Entity::make_asteroid_l(self.world.new_position(position.into()));
+        let mut asteroid = self
+            .entity_factory
+            .make_asteroid_l(self.world.new_position(position.into()));
         let direction_towards_world_center = asteroid.position().to_vector2() * -1.;
         if let Some(physics) = &mut asteroid.physics {
             physics.linear_speed =
@@ -118,7 +126,7 @@ impl GameState {
         self.entities.get_mut(id).unwrap().as_mut()
     }
 
-    pub fn entities_grouped(&self) -> Vec<(&str, Vec<&Entity>)> {
+    pub fn entities_grouped_by_name(&self) -> Vec<(&str, Vec<&Entity>)> {
         let mut groups = Vec::new();
         let mut group = Vec::new();
         let mut entity_name = "";
@@ -143,27 +151,71 @@ impl GameState {
         groups
     }
 
-    pub fn instances_grouped(&self) -> Vec<(&str, Vec<Instance>)> {
+    pub fn entities_grouped(&self) -> GroupedForRender<&Entity> {
+        let mut shaders_map: GroupedForRender<&Entity> = BTreeMap::new();
+
+        self.entities.iter().flatten().for_each(|entity| {
+            if let Some(Renderable {
+                shader,
+                mesh,
+                material,
+            }) = entity.renderable
+            {
+                match shaders_map.get_mut(&shader) {
+                    Some(mesh_map) => match mesh_map.get_mut(&mesh) {
+                        Some(material_map) => match material_map.get_mut(&material) {
+                            Some(entities) => {
+                                entities.push(entity);
+                            }
+                            None => {
+                                material_map.insert(material, vec![entity]);
+                            }
+                        },
+                        None => {
+                            let mut material_map = BTreeMap::new();
+                            material_map.insert(material, vec![entity]);
+                            mesh_map.insert(mesh, material_map);
+                        }
+                    },
+
+                    None => {
+                        let mut material_map = BTreeMap::new();
+                        let mut mesh_map = BTreeMap::new();
+
+                        material_map.insert(material, vec![entity]);
+                        mesh_map.insert(mesh, material_map);
+                        shaders_map.insert(shader, mesh_map);
+                    }
+                }
+            }
+        });
+
+        shaders_map
+    }
+
+    pub fn instances_grouped(&self) -> GroupedForRender<Instance> {
         let world = &self.world;
-        self.entities_grouped()
-            .par_iter()
-            .map(|(name, entities)| {
-                (
-                    *name,
+        map_btreemap(&self.entities_grouped(), |mesh_map| {
+            map_btreemap(mesh_map, |mat_map| {
+                map_btreemap(mat_map, |entities| {
                     entities
                         .par_iter()
                         .map(|entity| world.add_ghost_instances(entity))
                         .flatten()
-                        .collect::<Vec<Instance>>(),
-                )
+                        .collect::<Vec<Instance>>()
+                })
             })
-            .collect::<Vec<_>>()
+        })
     }
 
     pub fn instances_raw(&self) -> Vec<InstanceRaw> {
         self.instances_grouped()
-            .par_iter()
-            .map(|(_name, instances)| instances)
+            .iter()
+            .map(|(_shader_name, mesh_map)| mesh_map)
+            .flatten()
+            .map(|(_mesh_id, mat_map)| mat_map)
+            .flatten()
+            .map(|(_mat_id, instances)| instances)
             .flatten()
             .map(|instance| Instance::to_raw(instance))
             .collect::<Vec<_>>()
@@ -171,7 +223,7 @@ impl GameState {
 
     pub fn light_uniforms(&self) -> Vec<LightUniform> {
         self.entities
-            .par_iter()
+            .iter()
             .flatten()
             .flat_map(|entity| {
                 entity.light.map(|light| {
@@ -237,7 +289,7 @@ impl GameState {
                             {
                                 if control.weapon_cooldown < delta_time {
                                     if input.is_backward_pressed {
-                                        to_spawn.push(Entity::make_laser(
+                                        to_spawn.push(self.entity_factory.make_laser(
                                             position,
                                             entity.rotation,
                                             entity.physics.unwrap().linear_speed,
@@ -337,7 +389,9 @@ impl GameState {
         self.entities
             .par_iter()
             .filter_map(|entity_option| {
-                entity_option.filter(|entity| entity.name.starts_with("Asteroid"))
+                entity_option
+                    .as_ref()
+                    .filter(|entity| entity.name.starts_with("Asteroid"))
             })
             .count()
     }
@@ -376,13 +430,14 @@ fn test_gamestate_asteroids_count() {
         world,
         last_update: Instant::now(),
         score: 0,
+        entity_factory: EntityFactory::empty(),
     };
 
     assert_eq!(gamestate.asteroids_count(), 3);
 }
 
 #[test]
-fn test_gamestate_entities_grouped() {
+fn test_gamestate_entities_grouped_by_name() {
     let world = World::init(1.0);
     let default_position = world.new_position((0.0, 0.0).into());
     let a = Entity::new("A", default_position.clone());
@@ -403,6 +458,7 @@ fn test_gamestate_entities_grouped() {
         world,
         last_update: Instant::now(),
         score: 0,
+        entity_factory: EntityFactory::empty(),
     };
 
     let expected = vec![
@@ -411,11 +467,31 @@ fn test_gamestate_entities_grouped() {
         ("A", vec![a.clone(), a.clone()]),
     ];
 
-    assert_eq!(gamestate.entities_grouped().len(), expected.len());
-    assert_eq!(gamestate.entities_grouped()[0].0, expected[0].0);
-    assert_eq!(gamestate.entities_grouped()[0].1.len(), expected[0].1.len());
-    assert_eq!(gamestate.entities_grouped()[1].0, expected[1].0);
-    assert_eq!(gamestate.entities_grouped()[1].1.len(), expected[1].1.len());
-    assert_eq!(gamestate.entities_grouped()[2].0, expected[2].0);
-    assert_eq!(gamestate.entities_grouped()[2].1.len(), expected[2].1.len());
+    assert_eq!(gamestate.entities_grouped_by_name().len(), expected.len());
+    assert_eq!(gamestate.entities_grouped_by_name()[0].0, expected[0].0);
+    assert_eq!(
+        gamestate.entities_grouped_by_name()[0].1.len(),
+        expected[0].1.len()
+    );
+    assert_eq!(gamestate.entities_grouped_by_name()[1].0, expected[1].0);
+    assert_eq!(
+        gamestate.entities_grouped_by_name()[1].1.len(),
+        expected[1].1.len()
+    );
+    assert_eq!(gamestate.entities_grouped_by_name()[2].0, expected[2].0);
+    assert_eq!(
+        gamestate.entities_grouped_by_name()[2].1.len(),
+        expected[2].1.len()
+    );
+}
+
+fn map_btreemap<K, V, W, F>(btreemap: &BTreeMap<K, V>, f: F) -> BTreeMap<K, W>
+where
+    F: Fn(&V) -> W,
+    K: Copy,
+    K: std::cmp::Eq,
+    K: std::cmp::Ord,
+    K: std::hash::Hash,
+{
+    BTreeMap::from_iter(btreemap.iter().map(|(k, v)| (*k, f(v))))
 }

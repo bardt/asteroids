@@ -1,20 +1,24 @@
-use super::components::{self, Collision, Control, Health, Lifetime, Light, Physics};
+use super::components::{self, Collision, Control, Health, Lifetime, Light, Physics, Renderable};
 use super::geometry::{self, Shape};
 use super::world::WorldPosition;
 
 use crate::instance::Instance;
+use crate::resource::Resources;
+use crate::shaders::ShaderName;
 use cgmath::{prelude::*, Deg};
 use cgmath::{InnerSpace, Zero};
 use core::fmt::Debug;
+use std::rc::Rc;
 use std::time::Duration;
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct Entity {
     pub name: &'static str,
     pub rotation: cgmath::Quaternion<f32>,
     position: WorldPosition,
     entered_world: bool, // @TODO: find a way to set it whenever position changes
     pub shape: Option<geometry::Shape>,
+    pub renderable: Option<components::Renderable>,
     pub physics: Option<components::Physics>,
     pub collision: Option<components::Collision>,
     pub control: Option<components::Control>,
@@ -33,6 +37,7 @@ impl Default for Entity {
             // Reason: when asteroid breaks into smaller parts at the world's border, those parts can fly away into space before they enter the world and therefore stay unreachable forever.
             entered_world: false,
             shape: None,
+            renderable: None,
             physics: None,
             collision: None,
             control: None,
@@ -125,12 +130,31 @@ impl Entity {
                 true
             };
     }
+}
 
-    pub fn make_asteroid_s(position: WorldPosition) -> Entity {
+pub struct EntityFactory {
+    pub resources: Rc<Resources>,
+}
+
+impl EntityFactory {
+    #[allow(dead_code)]
+    pub fn empty() -> Self {
+        EntityFactory {
+            resources: Rc::new(Resources::ZERO),
+        }
+    }
+
+    pub fn make_asteroid_s(&self, position: WorldPosition) -> Entity {
+        let (mesh_id, mesh) = self.resources.get_mesh_by_name("Asteroid_S").unwrap();
         Entity {
             name: "Asteroid_S",
             position,
             rotation: cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), Deg(0.0)),
+            renderable: Some(Renderable {
+                shader: ShaderName::Model,
+                mesh: mesh_id,
+                material: mesh.material,
+            }),
             physics: Some(Physics::random(10., 100.)),
             shape: Some(Shape::Circle {
                 origin: position.to_zero(),
@@ -148,11 +172,17 @@ impl Entity {
         }
     }
 
-    pub fn make_asteroid_m(position: WorldPosition) -> Entity {
+    pub fn make_asteroid_m(&self, position: WorldPosition) -> Entity {
+        let (mesh_id, mesh) = self.resources.get_mesh_by_name("Asteroid_M").unwrap();
         Entity {
             name: "Asteroid_M",
             position,
             rotation: cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), Deg(0.0)),
+            renderable: Some(Renderable {
+                shader: ShaderName::Model,
+                mesh: mesh_id,
+                material: mesh.material,
+            }),
             physics: Some(Physics::random(10., 100.)),
             shape: Some(Shape::Circle {
                 origin: position.to_zero(),
@@ -169,12 +199,16 @@ impl Entity {
                     let mut to_spawn = Vec::with_capacity(2);
                     match this_option {
                         Some(this) => {
-                            to_spawn.push(Entity::make_asteroid_s(
-                                this.position.translate((1.5, 0.0).into()),
-                            ));
-                            to_spawn.push(Entity::make_asteroid_s(
-                                this.position.translate((-1.5, 0.0).into()),
-                            ));
+                            to_spawn.push(
+                                gamestate
+                                    .entity_factory
+                                    .make_asteroid_s(this.position.translate((1.5, 0.0).into())),
+                            );
+                            to_spawn.push(
+                                gamestate
+                                    .entity_factory
+                                    .make_asteroid_s(this.position.translate((-1.5, 0.0).into())),
+                            );
                         }
                         None => (),
                     }
@@ -190,11 +224,17 @@ impl Entity {
         }
     }
 
-    pub fn make_asteroid_l(position: WorldPosition) -> Entity {
+    pub fn make_asteroid_l(&self, position: WorldPosition) -> Entity {
+        let (mesh_id, mesh) = self.resources.get_mesh_by_name("Asteroid_L").unwrap();
         Entity {
             name: "Asteroid_L",
             position,
             rotation: cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), Deg(0.0)),
+            renderable: Some(Renderable {
+                shader: ShaderName::Model,
+                mesh: mesh_id,
+                material: mesh.material,
+            }),
             physics: Some(Physics::random(5., 100.)),
             shape: Some(Shape::Circle {
                 origin: position.to_zero(),
@@ -209,16 +249,21 @@ impl Entity {
                 on_collision: |gamestate, this_id, _other_ids| {
                     let mut to_spawn = Vec::with_capacity(2);
                     if let Some(this) = gamestate.get_entity(this_id) {
-                        to_spawn.push(Entity::make_asteroid_m(
-                            this.position.translate((3.5, 0.0).into()),
-                        ));
-                        to_spawn.push(Entity::make_asteroid_m(
-                            this.position.translate((-3.5, 0.0).into()),
-                        ));
-                        to_spawn.push(Entity::make_cloud(
-                            this.position,
-                            cgmath::Quaternion::zero(),
-                        ))
+                        to_spawn.push(
+                            gamestate
+                                .entity_factory
+                                .make_asteroid_m(this.position.translate((3.5, 0.0).into())),
+                        );
+                        to_spawn.push(
+                            gamestate
+                                .entity_factory
+                                .make_asteroid_m(this.position.translate((-3.5, 0.0).into())),
+                        );
+                        to_spawn.push(
+                            gamestate
+                                .entity_factory
+                                .make_cloud(this.position, cgmath::Quaternion::zero()),
+                        )
                     }
 
                     for e in to_spawn {
@@ -232,12 +277,17 @@ impl Entity {
         }
     }
 
-    pub fn make_spaceship(position: WorldPosition, rotation_angle: f32) -> Entity {
+    pub fn make_spaceship(&self, position: WorldPosition, rotation_angle: f32) -> Entity {
+        let (mesh_id, mesh) = self.resources.get_mesh_by_name("Spaceship").unwrap();
         Entity {
             name: "Spaceship",
             position,
             rotation: cgmath::Quaternion::from_angle_z(Deg(rotation_angle)),
-
+            renderable: Some(Renderable {
+                shader: ShaderName::Model,
+                mesh: mesh_id,
+                material: mesh.material,
+            }),
             physics: Some(Physics {
                 max_linear_speed: 60.,
                 ..Default::default()
@@ -279,16 +329,22 @@ impl Entity {
     }
 
     pub fn make_laser(
+        &self,
         position: WorldPosition,
         rotation: cgmath::Quaternion<f32>,
         relative_speed: cgmath::Vector2<f32>,
     ) -> Entity {
         let init_speed = 80.;
-
+        let (mesh_id, mesh) = self.resources.get_mesh_by_name("Laser").unwrap();
         Entity {
             name: "Laser",
             position,
             rotation,
+            renderable: Some(Renderable {
+                shader: ShaderName::Model,
+                mesh: mesh_id,
+                material: mesh.material,
+            }),
             physics: Some(Physics {
                 linear_speed: (rotation.rotate_vector(cgmath::Vector3::unit_y())).truncate()
                     * init_speed
@@ -333,12 +389,18 @@ impl Entity {
         }
     }
 
-    pub fn make_cloud(position: WorldPosition, rotation: cgmath::Quaternion<f32>) -> Entity {
+    pub fn make_cloud(&self, position: WorldPosition, rotation: cgmath::Quaternion<f32>) -> Entity {
+        let (mesh_id, mesh) = self.resources.get_mesh_by_name("Cloud_L").unwrap();
         Entity {
             name: "Cloud_L",
             position,
             rotation,
             entered_world: true,
+            renderable: Some(Renderable {
+                shader: ShaderName::Texture,
+                mesh: mesh_id,
+                material: mesh.material,
+            }),
             lifetime: Some(Lifetime {
                 dies_after: Duration::from_secs(1),
             }),
