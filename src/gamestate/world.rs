@@ -4,7 +4,7 @@ use crate::{camera::Camera, instance::Instance};
 use cgmath::prelude::*;
 use cgmath::Vector2;
 use cgmath::Vector3;
-use model_shader::CameraUniform;
+use shared::CameraUniform;
 use std::fmt::Display;
 
 const WORLD_SIZE_MIN: f32 = 100.;

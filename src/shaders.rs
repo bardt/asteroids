@@ -27,7 +27,7 @@ impl Shaders {
     ) -> Self {
         let texture = {
             let module = wgpu::ShaderModuleDescriptor {
-                label: Some("Shader"),
+                label: Some("Texture Shader"),
                 source: wgpu::ShaderSource::SpirV(wgpu::util::make_spirv_raw(include_bytes!(
                     env!("texture_shader.spv")
                 ))),
@@ -52,7 +52,7 @@ impl Shaders {
 
         let model = {
             let module = wgpu::ShaderModuleDescriptor {
-                label: Some("Shader"),
+                label: Some("Model Shader"),
                 source: wgpu::ShaderSource::SpirV(wgpu::util::make_spirv_raw(include_bytes!(
                     env!("model_shader.spv")
                 ))),

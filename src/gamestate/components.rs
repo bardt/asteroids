@@ -1,8 +1,8 @@
 use std::time::Duration;
 
 use cgmath::{Deg, Rotation3, Zero};
-use model_shader::LightUniform;
 use rand::Rng;
+use shared::LightUniform;
 
 use crate::shaders::ShaderName;
 

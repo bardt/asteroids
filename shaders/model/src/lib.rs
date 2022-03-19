@@ -10,9 +10,11 @@
 #[cfg(feature = "wgpu")]
 pub mod pipeline;
 
-use bytemuck::{Pod, Zeroable};
+
+
+use shared::{CameraUniform, LightUniform, LightsUniform};
 use spirv_std::glam::Vec4Swizzles;
-use spirv_std::glam::{mat3, mat4, vec3, vec4, Mat3, Mat4, Vec2, Vec3, Vec4};
+use spirv_std::glam::{mat3, mat4, vec3, Mat3, Vec2, Vec3, Vec4};
 use spirv_std::num_traits::Float;
 use spirv_std::Image;
 use spirv_std::Sampler;
@@ -22,77 +24,6 @@ type Image2d = Image!(2D, type=f32, sampled);
 #[cfg(not(target_arch = "spirv"))]
 use spirv_std::macros::spirv;
 
-#[repr(C)]
-#[derive(Copy, Clone, Pod, Zeroable)]
-pub struct CameraUniform {
-    pub view_pos: Vec4,
-    pub view_proj: Mat4,
-}
-
-impl CameraUniform {
-    pub fn new() -> Self {
-        Self {
-            view_pos: Vec4::ZERO,
-            view_proj: Mat4::IDENTITY,
-        }
-    }
-
-    pub fn update(&mut self, pos: [f32; 4], proj: &[[f32; 4]; 4]) {
-        self.view_pos = pos.into();
-        self.view_proj = Mat4::from_cols_array_2d(proj);
-    }
-}
-
-#[repr(C)]
-#[derive(Copy, Clone, Pod, Zeroable)]
-pub struct LightUniform {
-    position: Vec4,
-    color: Vec4,
-    radius: Vec4,
-}
-
-impl LightUniform {
-    pub fn new(position: [f32; 3], color: [f32; 3], radius: f32) -> Self {
-        Self {
-            position: vec4(position[0], position[1], position[2], 0.),
-            color: vec4(color[0], color[1], color[2], 0.),
-            radius: vec4(radius, 0., 0., 0.),
-        }
-    }
-
-    pub fn empty() -> Self {
-        Self::new([0.0, 0.0, 0.0], [0.0, 0.0, 0.0], 0.0)
-    }
-}
-
-const MAX_LIGHTS: usize = 16;
-
-#[repr(C)]
-#[derive(Copy, Clone, Pod, Zeroable)]
-pub struct LightsUniform {
-    data: [LightUniform; MAX_LIGHTS],
-    size: usize,
-    _padding1: usize,
-    _padding2: usize,
-    _padding3: usize,
-}
-
-impl LightsUniform {
-    pub fn new(lights: &[LightUniform]) -> Self {
-        let mut data = [LightUniform::empty(); MAX_LIGHTS];
-        for i in 0..lights.len().min(MAX_LIGHTS) {
-            data[i] = lights[i];
-        }
-
-        Self {
-            data,
-            size: lights.len(),
-            _padding1: 0,
-            _padding2: 0,
-            _padding3: 0,
-        }
-    }
-}
 
 #[spirv(vertex)]
 pub fn main_vs(
@@ -169,7 +100,7 @@ pub fn main_fs(
 
     let mut i = 0_usize;
 
-    while i < min_usize(lights.size as usize, MAX_LIGHTS) {
+    while i < min_usize(lights.size as usize, LightsUniform::MAX_LIGHTS) {
         let light: &LightUniform = &lights.data[i];
 
         let tangent_light_position = tangent_matrix * light.position.xyz();

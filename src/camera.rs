@@ -1,4 +1,4 @@
-use model_shader::CameraUniform;
+use shared::CameraUniform;
 use wgpu::util::DeviceExt;
 
 pub struct Camera {
@@ -62,7 +62,7 @@ impl CameraBuffer {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
         let bind_group_layout =
-            device.create_bind_group_layout(&shared::camera_bind_group_layout_desc());
+            device.create_bind_group_layout(&shared::wgpu::camera_bind_group_layout_desc());
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Camera Bind Group"),
             entries: &[wgpu::BindGroupEntry {

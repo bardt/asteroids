@@ -1,4 +1,4 @@
-use model_shader::{LightUniform, LightsUniform};
+use shared::{LightUniform, LightsUniform};
 use wgpu::util::DeviceExt;
 
 pub struct LightsBuffer {
@@ -18,7 +18,7 @@ impl LightsBuffer {
         });
 
         let bind_group_layout =
-            device.create_bind_group_layout(&shared::light_bind_group_layout_desc());
+            device.create_bind_group_layout(&shared::wgpu::light_bind_group_layout_desc());
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Light Bind Group"),

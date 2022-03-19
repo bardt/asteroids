@@ -11,12 +11,10 @@ use crate::resource::Resources;
 use crate::shaders::ShaderName;
 use crate::{input::Input, instance::Instance};
 use cgmath::prelude::*;
-
-use model_shader::LightUniform;
 use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::IntoParallelRefMutIterator;
 use rayon::iter::ParallelIterator;
-
+use shared::LightUniform;
 use std::collections::BTreeMap;
 use std::rc::Rc;
 use std::time::Duration;

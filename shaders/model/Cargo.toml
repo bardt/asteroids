@@ -8,11 +8,11 @@ publish = false
 crate-type = ["lib", "dylib"]
 
 [features]
-pipeline = [ "wgpu", "shared" ]
+pipeline = [ "wgpu", "shared/wgpu_bindings" ]
 
 [dependencies]
 spirv-std = { git = "https://github.com/EmbarkStudios/rust-gpu", features = ["glam"] }
 glam = { version = "0.20.2", default-features = false, features = ["libm", "bytemuck"] }
 bytemuck = { version = "1.4", features = [ "derive" ] }
 wgpu = { version = "0.12", optional = true }
-shared = { path = "../shared", optional = true}
+shared = { path = "../shared" }
