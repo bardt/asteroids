@@ -32,6 +32,7 @@ pub struct GameState {
     last_update: Instant,
     score: usize,
     pub entity_factory: EntityFactory,
+    pub cutscene_mode: bool,
 }
 
 #[allow(dead_code)]
@@ -40,19 +41,29 @@ type EntityIndex = usize;
 type GroupedForRender<T> = BTreeMap<ShaderName, BTreeMap<usize, BTreeMap<usize, Vec<T>>>>;
 
 impl GameState {
-    pub fn new_game(aspect: f32, resources: Rc<Resources>) -> Self {
+    pub fn new_game(aspect: f32, resources: Rc<Resources>, cutscene_mode: bool) -> Self {
         let mut game = Self {
             entities: vec![],
             world: World::init(aspect),
             last_update: Instant::now(),
             score: 0,
             entity_factory: EntityFactory { resources },
+            cutscene_mode,
         };
 
-        game.push(
-            game.entity_factory
-                .make_spaceship(game.world.new_position((0.0, 0.0).into()), 0.),
-        );
+        let mut spaceship = game
+            .entity_factory
+            .make_spaceship(game.world.new_position((0.0, 0.0).into()), 0.);
+
+        if cutscene_mode {
+            spaceship.health = Some(Health {
+                level: 3,
+                invincible: true,
+            });
+            spaceship.renderable = None;
+        }
+
+        game.push(spaceship);
 
         game.spawn_asteroid();
         game.spawn_asteroid();
@@ -452,6 +463,7 @@ fn test_gamestate_asteroids_count() {
         last_update: Instant::now(),
         score: 0,
         entity_factory: EntityFactory::empty(),
+        cutscene_mode: false,
     };
 
     assert_eq!(gamestate.asteroids_count(), 3);
@@ -480,6 +492,7 @@ fn test_gamestate_entities_grouped_by_name() {
         last_update: Instant::now(),
         score: 0,
         entity_factory: EntityFactory::empty(),
+        cutscene_mode: false,
     };
 
     let expected = vec![

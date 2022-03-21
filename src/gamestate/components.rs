@@ -75,10 +75,14 @@ impl Default for Physics {
 #[derive(Clone, Copy)]
 pub struct Health {
     pub level: usize,
+    pub invincible: bool,
 }
 
 impl Health {
     pub fn deal_damage(&mut self, damage: usize) {
+        if self.invincible {
+            return;
+        }
         self.level = (self.level as isize - damage as isize).max(0) as usize;
     }
 }

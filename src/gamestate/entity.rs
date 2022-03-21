@@ -323,7 +323,10 @@ impl EntityFactory {
                 },
             }),
             control: Some(Control::enabled()),
-            health: Some(Health { level: 3 }),
+            health: Some(Health {
+                level: 3,
+                invincible: false,
+            }),
             ..Default::default()
         }
     }

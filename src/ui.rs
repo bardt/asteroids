@@ -62,11 +62,13 @@ impl UI {
             vec![]
         };
 
-        left_column.push(render_text(format!("Score: {:?}", gamestate.score())));
+        if !gamestate.cutscene_mode {
+            left_column.push(render_text(format!("Score: {:?}", gamestate.score())));
 
-        gamestate
-            .spaceship_health()
-            .map(|health| left_column.push(render_text(format!("Health: {:?}", health.level))));
+            gamestate
+                .spaceship_health()
+                .map(|health| left_column.push(render_text(format!("Health: {:?}", health.level))));
+        }
 
         let right_column = vec![render_text(format!("{:?} FPS", fps))];
 
@@ -74,6 +76,14 @@ impl UI {
             vec![
                 render_text("Game Over".to_string()),
                 render_text("Press N for new game".to_string()),
+            ]
+        } else if gamestate.cutscene_mode {
+            vec![
+                render_text("Asteroids".to_string()),
+                render_text("Press N for new game".to_string()),
+                render_text("A, D to turn".to_string()),
+                render_text("W to throttle".to_string()),
+                render_text("S to shoot".to_string()),
             ]
         } else {
             vec![]

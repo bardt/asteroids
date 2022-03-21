@@ -92,7 +92,7 @@ impl State {
         let shaders = Shaders::init(&device, config.format, Some(texture::Texture::DEPTH_FORMAT));
 
         let aspect = config.width as f32 / config.height as f32;
-        let mut gamestate = GameState::new_game(aspect, resources.clone());
+        let mut gamestate = GameState::new_game(aspect, resources.clone(), true);
 
         let mut camera_buffer = CameraBuffer::new(&device);
         camera_buffer.update_buffer(&queue, &mut gamestate.world.camera);
@@ -168,6 +168,7 @@ impl State {
                         self.gamestate = GameState::new_game(
                             aspect,
                             self.gamestate.entity_factory.resources.clone(),
+                            false,
                         );
                         true
                     }
