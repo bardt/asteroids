@@ -64,10 +64,9 @@ impl UI {
 
         left_column.push(render_text(format!("Score: {:?}", gamestate.score())));
 
-        left_column.push(render_text(format!(
-            "Asteroids: {:?}",
-            gamestate.asteroids_count()
-        )));
+        gamestate
+            .spaceship_health()
+            .map(|health| left_column.push(render_text(format!("Health: {:?}", health.level))));
 
         let right_column = vec![render_text(format!("{:?} FPS", fps))];
 

@@ -22,7 +22,7 @@ use std::time::Instant;
 
 use rand::Rng;
 
-use self::components::Renderable;
+use self::components::{Health, Renderable};
 use self::entity::{Entity, EntityFactory};
 use self::world::World;
 
@@ -85,6 +85,20 @@ impl GameState {
 
     pub fn score(&self) -> usize {
         self.score
+    }
+
+    pub fn spaceship_health(&self) -> Option<Health> {
+        self.entities.iter().flatten().find_map(|entity| {
+            if let Some(health) = entity.health {
+                if entity.name == "Spaceship" {
+                    Some(health)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
     }
 
     pub fn spawn_asteroid(&mut self) {
