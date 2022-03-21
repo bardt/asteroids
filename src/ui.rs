@@ -70,11 +70,22 @@ impl UI {
 
         let right_column = vec![render_text(format!("{:?} FPS", fps))];
 
-        self.textures
-            .resize_with(left_column.len() + right_column.len(), || {
+        let center = if gamestate.is_over() {
+            vec![
+                render_text("Game Over".to_string()),
+                render_text("Press N for new game".to_string()),
+            ]
+        } else {
+            vec![]
+        };
+
+        self.textures.resize_with(
+            left_column.len() + right_column.len() + center.len(),
+            || {
                 let vertex_buffer = TextureRenderer::init_vertex_buffer(device);
                 (vertex_buffer, None)
-            });
+            },
+        );
 
         let left_column_len = left_column.len();
         for (index, text_material) in left_column.into_iter().enumerate().collect::<Vec<_>>() {
@@ -107,6 +118,35 @@ impl UI {
                     1. - (index as f32) * line_height,
                 ),
                 right_bottom: (1., 1. - (index + 1) as f32 * line_height),
+            };
+            TextureRenderer::update_vertex_buffer(
+                &self.textures[index + left_column_len].0,
+                &count_rect,
+                [0.; 4],
+                queue,
+            );
+            self.textures[index + left_column_len].1 = Some(text_material);
+        }
+
+        for (index, text_material) in center.into_iter().enumerate().collect::<Vec<_>>() {
+            let count_rect = Rect {
+                left_top: (
+                    text_material.diffuse_texture.size.width as f32
+                        / text_material.diffuse_texture.size.height as f32
+                        / world_aspect
+                        * line_height
+                        / 2.
+                        * -1.,
+                    1. - (index as f32) * line_height,
+                ),
+                right_bottom: (
+                    text_material.diffuse_texture.size.width as f32
+                        / text_material.diffuse_texture.size.height as f32
+                        / world_aspect
+                        * line_height
+                        / 2.,
+                    1. - (index + 1) as f32 * line_height,
+                ),
             };
             TextureRenderer::update_vertex_buffer(
                 &self.textures[index + left_column_len].0,

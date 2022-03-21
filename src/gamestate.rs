@@ -101,6 +101,15 @@ impl GameState {
         })
     }
 
+    pub fn is_over(&self) -> bool {
+        let health_level = self
+            .spaceship_health()
+            .map(|health| health.level)
+            .unwrap_or(0);
+
+        health_level == 0
+    }
+
     pub fn spawn_asteroid(&mut self) {
         // Spawn outside of the world
         let mut rng = rand::thread_rng();
