@@ -2,7 +2,9 @@
 
 This is my reimplementation of a classic arcade game. I built it on top of [WGPU tutorial project](https://sotrh.github.io/learn-wgpu/) to deepen my knowledge of Rust and making games.
 
-# Why
+![2022-05-05 08 43 49](https://user-images.githubusercontent.com/633908/166874534-503c83d5-5228-4d43-975c-732a82693f12.gif)
+
+## Why
 
 Following an [advice from Casey Muratori](https://youtu.be/NXsWViTB238?t=4610) to start small and learn all the steps of making games, I tried to avoid googling what the preferred way of doing things is, and instead get a first-hand experience.
 
