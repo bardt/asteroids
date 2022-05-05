@@ -2,7 +2,11 @@
 
 This is my reimplementation of a classic arcade game. I built it on top of [WGPU tutorial project](https://sotrh.github.io/learn-wgpu/) to deepen my knowledge of Rust and making games.
 
-## What's inside
+# Why
+
+Following an [advice from Casey Muratori](https://youtu.be/NXsWViTB238?t=4610) to start small and learn all the steps of making games, I tried to avoid googling what the preferred way of doing things is, and instead get a first-hand experience.
+
+## What
 
 **3D** rendering, **2D** game world.
 
@@ -12,7 +16,7 @@ Naive **collision detection**.
 
 [rust-gpu](https://github.com/EmbarkStudios/rust-gpu) shaders (initially WGSL).
 
-Ad-hoc *ECS*.
+Ad-hoc **ECS**.
 
 Simple **font rendering**.
 
